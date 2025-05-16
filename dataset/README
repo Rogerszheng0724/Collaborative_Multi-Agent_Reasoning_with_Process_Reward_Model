@@ -1,0 +1,16 @@
+Dolly:70
+  open_qa:20
+  cloe_qa:15
+  brainstorming:20
+  creative_writing:15
+GSM8k:30
+
+資料集裡面統一格式
+{
+  "instruction": 
+  "context": 
+  "response": 
+  "category": 
+}
+
+GSM8k的問題會放在instruction，答案會放在response，category會標成"math_gsm8k"，context不會有東西
