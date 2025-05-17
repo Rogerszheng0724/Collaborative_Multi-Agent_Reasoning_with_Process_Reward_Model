@@ -61,7 +61,7 @@ class TerminalLogger:
     def warning(self, stage, message):
         print(f"[WARNING][{stage}] {message}")
 
-    def info(self, message): # Corrected: only self and message
+    def info(self, message): 
          if self.verbose: 
             print(f"[INFO] {message}")
 
@@ -116,22 +116,16 @@ def download_nltk_resource(resource_name, download_name, logger):
     except LookupError:
         logger.info(f"NLTK resource '{resource_name}' not found. Attempting to download '{download_name}'...")
         try:
-            # Removed quiet=True for more verbose download output
-            nltk.download(download_name) 
-            logger.info(f"NLTK resource '{download_name}' download initiated. Verifying...")
+            nltk.download(download_name, halt_on_error=False) # Continue even if download reports error
+            logger.info(f"NLTK download attempt for '{download_name}' completed.")
             # Try to find it again after download attempt
             nltk.data.find(resource_name)
             logger.info(f"NLTK resource '{resource_name}' verified after download attempt.")
+        except LookupError: # Still not found after download attempt
+            logger.error("NLTK_DOWNLOAD", f"NLTK resource '{resource_name}' still not found after download attempt. This may cause issues with NLP metrics (e.g., METEOR).")
+            logger.error("NLTK_DOWNLOAD", f"Please try running 'import nltk; nltk.download(\"{download_name}\")' manually in a Python interpreter.")
         except urllib.error.URLError as e:
             logger.error("NLTK_DOWNLOAD", f"Failed to download '{download_name}' due to network issue: {e}")
-        except ValueError as ve: # nltk.download can raise ValueError if resource is "already up-to-date" but still not found
-             logger.warning("NLTK_DOWNLOAD", f"NLTK download for '{download_name}' reported: {ve}. This might be okay if already present but unfindable initially.")
-             # Attempt to verify again, as sometimes the "up-to-date" message is misleading if paths are tricky
-             try:
-                 nltk.data.find(resource_name)
-                 logger.info(f"NLTK resource '{resource_name}' found after 'up-to-date' message.")
-             except LookupError:
-                 logger.error("NLTK_DOWNLOAD", f"NLTK resource '{resource_name}' still not found after 'up-to-date' message and re-check. Manual NLTK setup might be needed.")
         except Exception as e:
             logger.error("NLTK_DOWNLOAD", f"Unexpected error during NLTK download or verification for '{download_name}': {e}\n{traceback.format_exc()}")
     except Exception as e:
@@ -140,7 +134,7 @@ def download_nltk_resource(resource_name, download_name, logger):
 temp_logger_for_nltk = TerminalLogger(verbose=True)
 download_nltk_resource('tokenizers/punkt', 'punkt', temp_logger_for_nltk)
 download_nltk_resource('corpora/wordnet', 'wordnet', temp_logger_for_nltk)
-download_nltk_resource('corpora/omw-1.4', 'omw-1.4', temp_logger_for_nltk)
+download_nltk_resource('corpora/omw-1.4', 'omw-1.4', temp_logger_for_nltk) # Open Multilingual Wordnet, often needed with wordnet
 del temp_logger_for_nltk
 
 # --- Load environment variables ---
@@ -620,7 +614,6 @@ class MASOrchestrator:
         self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after MAS Debate phase.")
         time.sleep(proactive_delay_between_stages)
 
-        # --- Capture original thoughtflow before PRM ---
         original_thoughtflow_summary_pre_prm = (
             f"Initial Task: {initial_task_description[:100]}...\n"
             f"Refined Task (if by ROT, partial): {refined_task_prompt_for_core_logic[:100]}...\n"
@@ -934,6 +927,9 @@ def calculate_nlp_metrics(generated_answer, ground_truth_answer, logger):
     try:
         ref_tokens = [word_tokenize(str_ground_truth_answer.lower())] if str_ground_truth_answer.strip() else [[]]
         gen_tokens = word_tokenize(str_generated_answer.lower()) if str_generated_answer.strip() else []
+    except LookupError as le: # Specifically for punkt not found
+        logger.error("calculate_nlp_metrics", f"Tokenization failed due to NLTK resource 'punkt' not found: {le}. NLP metrics will be 0.")
+        return metrics
     except Exception as e:
         logger.error("calculate_nlp_metrics", f"Tokenization failed: {e}. NLP metrics will be 0.")
         return metrics
@@ -974,8 +970,13 @@ def calculate_nlp_metrics(generated_answer, ground_truth_answer, logger):
 
     try:
         metrics["meteor"] = meteor_score(ref_tokens, gen_tokens)
-    except Exception as e: # Catches LookupError if wordnet is still not found despite download attempts
-        logger.error("calculate_nlp_metrics", f"Error calculating METEOR (potentially NLTK resource missing): {e}")
+    except LookupError as le: # Specifically for wordnet/omw-1.4 not found
+        logger.error("calculate_nlp_metrics", f"Error calculating METEOR due to NLTK resource (e.g., 'wordnet') not found: {le}. METEOR set to 0.0.")
+        metrics["meteor"] = 0.0
+    except Exception as e: 
+        logger.error("calculate_nlp_metrics", f"Error calculating METEOR: {e}")
+        metrics["meteor"] = 0.0
+
 
     try:
         global torch 
@@ -1038,16 +1039,23 @@ def main():
             sample_df = pd.DataFrame(columns=['instruction', 'context', 'response'])
             sample_df.loc[0] = ["What is the capital of France?", "France is a country in Europe.", "The capital of France is Paris."]
             sample_df.loc[1] = ["Explain the theory of relativity.", "", "The theory of relativity, developed by Albert Einstein, fundamentally changed our understanding of space, time, gravity, and the universe. It consists of two main parts: Special Relativity and General Relativity..."]
-            sample_df.to_csv(csv_file_path, index=False) 
-            logger.info(f"Sample {csv_file_path} created. Please populate it with your data and rerun.")
+            sample_df.to_csv(csv_file_path, index=False, encoding='utf-8') 
+            logger.info(f"Sample {csv_file_path} created with UTF-8 encoding. Please populate it with your data and rerun.")
         except Exception as e_create:
             logger.error("main", f"Failed to create sample {csv_file_path}: {e_create}")
         logger.section_end("Main Evaluation Flow")
         return
 
     try:
-        dataset_df = pd.read_csv(csv_file_path) 
-        logger.info(f"Successfully loaded {len(dataset_df)} records from '{csv_file_path}'.")
+        # Attempt to read with UTF-8 first
+        try:
+            dataset_df = pd.read_csv(csv_file_path, encoding='utf-8')
+            logger.info(f"Successfully loaded {len(dataset_df)} records from '{csv_file_path}' using UTF-8 encoding.")
+        except UnicodeDecodeError:
+            logger.warning("main", f"Failed to load '{csv_file_path}' with UTF-8 encoding. Attempting with 'latin1' encoding...")
+            dataset_df = pd.read_csv(csv_file_path, encoding='latin1')
+            logger.info(f"Successfully loaded {len(dataset_df)} records from '{csv_file_path}' using latin1 encoding.")
+        
         required_columns = ['instruction', 'response'] 
         missing_cols = [col for col in required_columns if col not in dataset_df.columns]
         if missing_cols:
@@ -1059,7 +1067,6 @@ def main():
             dataset_df["context"] = "" 
             
         if "rot_demonstration_input" not in dataset_df.columns or "rot_demonstration_output" not in dataset_df.columns:
-            # Corrected: logger.info only takes one message argument
             logger.info("CSV file does not contain 'rot_demonstration_input' or 'rot_demonstration_output' columns. ROT demonstrations will use defaults if not provided otherwise.")
 
     except Exception as e:
