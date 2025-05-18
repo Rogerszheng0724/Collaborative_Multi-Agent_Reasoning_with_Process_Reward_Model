@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 import google.generativeai as genai
 import os
-import re # 新增 re 模組
+import re # Added re module
 
-# --- 輔助：預設 Logger ---
+# --- Helper: Default Logger ---
 class DefaultLogger:
     def info(self, message): print(f"[LOT INFO] {message}")
     def warning(self, message): print(f"[LOT WARNING] {message}")
     def error(self, message): print(f"[LOT ERROR] {message}")
 
-# --- 必要的輔助類別 ---
+# --- Necessary Helper Classes ---
 class Thought:
-    def __init__(self, content, id, score=0.0, prm_justification="尚未評估"): # 統一分數為 float，新增 prm_justification
+    def __init__(self, content, id, score=0.0, prm_justification="Not yet evaluated"): # Standardized score to float, added prm_justification
         self.id = id
         self.content = content
-        self.score = score # 此分數將主要由 PRM 風格評估決定
+        self.score = score # This score will primarily be determined by PRM-style evaluation
         self.prm_justification = prm_justification
         self.parents = []
         self.children = []
@@ -22,20 +22,20 @@ class Thought:
     def __repr__(self):
         return f"Thought(id={self.id}, score={self.score:.2f}, content='{self.content[:50]}...')"
 
-class GraphOfThoughts: # LOT 中的 GraphOfThoughts 是一個基礎，主要被 LayerOfThoughts 繼承和使用
-    def __init__(self, llm_interface, logger=None): # 添加 logger
+class GraphOfThoughts: # GraphOfThoughts in LOT is a base, primarily inherited and used by LayerOfThoughts
+    def __init__(self, llm_interface, logger=None): # Added logger
         self.thoughts = {}
-        self.llm = llm_interface # 這個 llm 主要用於 LOT 內部操作，PRM 評估可能使用不同的 LLM
+        self.llm = llm_interface # This llm is mainly for LOT internal operations; PRM evaluation might use a different LLM
         self.logger = logger if logger else DefaultLogger()
-        # PRM 評估器 LLM，預設與操作 LLM 相同，但可以從外部指定
+        # PRM evaluator LLM, defaults to the operational LLM, but can be specified externally
         self.prm_evaluator_llm = llm_interface
 
-    def add_thought_object(self, thought_obj): # 允許直接添加 Thought 物件實例
+    def add_thought_object(self, thought_obj): # Allows direct addition of Thought object instances
         if thought_obj.id in self.thoughts:
-            self.logger.warning(f"ID 為 '{thought_obj.id}' 的 Thought 已存在。將不會重複新增。")
+            self.logger.warning(f"Thought with ID '{thought_obj.id}' already exists. Will not add again.")
             return self.thoughts[thought_obj.id]
         self.thoughts[thought_obj.id] = thought_obj
-        # 父子關係應由創建 Thought 物件的邏輯處理
+        # Parent-child relationships should be handled by the logic that creates Thought objects
         return thought_obj
 
     def get_thought(self, thought_id):
@@ -43,83 +43,83 @@ class GraphOfThoughts: # LOT 中的 GraphOfThoughts 是一個基礎，主要被 
 
     def _generate_prm_style_scoring_prompt_for_lot_artifact(self, artifact_content, artifact_type, layer_conceptual_step, main_task_description):
         """
-        為 LOT 產生的中間成果（如選項思維、層次聚合輸出）產生 PRM 風格的評分提示。
-        artifact_type: "選項思維" 或 "層次聚合輸出"
-        layer_conceptual_step: 當前層次的概念步驟描述
-        main_task_description: 整體的主要任務目標
+        Generates a PRM-style scoring prompt for intermediate artifacts produced by LOT (e.g., option thoughts, layer aggregation outputs).
+        artifact_type: "Option Thought" or "Layer Aggregation Output"
+        layer_conceptual_step: Description of the current layer's conceptual step
+        main_task_description: Overall main task objective
         """
         prompt = (
-            f"您是一位專家級的評估員。\n"
-            f"主要任務目標：'{main_task_description}'\n"
-            f"當前正在處理的層次化概念步驟：'{layer_conceptual_step}'\n\n"
-            f"待評估的「{artifact_type}」內容如下：\n\"\"\"\n{artifact_content}\n\"\"\"\n\n"
-            "評估指示：\n"
-            f"1.  對「層次概念步驟」的貢獻：此「{artifact_type}」在多大程度上有效地實現了上述「層次化概念步驟」的目標？\n"
-            f"2.  對「主要任務目標」的推進：此「{artifact_type}」（作為當前層次的成果）是否有助於最終完成「主要任務目標」？它是否為後續步驟打下了良好基礎，還是可能導致偏離方向？\n"
-            "3.  清晰度與可行性：此成果本身是否清晰、具體？如果它是一個計劃或部分解決方案，它是否具有初步的可行性？\n\n"
-            "請提供一個總體評分和簡要理由。\n"
-            "輸出格式（嚴格遵守）：\n"
-            "Score: [一個介於 0.0 (非常差/無助益) 到 1.0 (非常好/極具潛力) 之間的浮點數]\n"
-            "Justification: [對您的分數的簡要解釋，說明其如何以及為何有助於或無助於完成層次目標和主要任務目標]"
+            f"You are an expert evaluator.\n"
+            f"Main Task Objective: '{main_task_description}'\n"
+            f"Current Hierarchical Conceptual Step being processed: '{layer_conceptual_step}'\n\n"
+            f"The content of the '{artifact_type}' to be evaluated is as follows:\n\"\"\"\n{artifact_content}\n\"\"\"\n\n"
+            "Evaluation Instructions:\n"
+            f"1.  Contribution to 'Hierarchical Conceptual Step': To what extent does this '{artifact_type}' effectively achieve the goals of the 'Hierarchical Conceptual Step' mentioned above?\n"
+            f"2.  Advancement of 'Main Task Objective': Does this '{artifact_type}' (as an outcome of the current layer) help in ultimately completing the 'Main Task Objective'? Does it lay a good foundation for subsequent steps, or might it lead off track?\n"
+            "3.  Clarity and Feasibility: Is the artifact itself clear and concrete? If it is a plan or partial solution, does it have initial feasibility?\n\n"
+            "Please provide an overall score and a brief justification.\n"
+            "Output Format (Strictly Adhere):\n"
+            "Score: [A floating-point number between 0.0 (very poor/unhelpful) and 1.0 (excellent/highly promising)]\n"
+            "Justification: [A brief explanation for your score, stating how and why it helps or hinders the completion of the layer objective and the main task objective]"
         )
         return prompt
 
     def _parse_llm_response_for_prm_score(self, llm_response_text):
-        if not llm_response_text or llm_response_text.startswith("錯誤 (LOT):") or llm_response_text.startswith("LLM 未初始化") or llm_response_text.startswith("LLM 錯誤"):
-            self.logger.warning(f"LLM 回應無效或為錯誤訊息，無法解析 PRM 分數: {llm_response_text}")
-            return 0.0, f"PRM 評分失敗：LLM 回應無效 ({llm_response_text})"
+        if not llm_response_text or llm_response_text.startswith("Error (LOT):") or llm_response_text.startswith("LLM not initialized") or llm_response_text.startswith("LLM Error"): # Added specific error checks for LOT
+            self.logger.warning(f"Invalid or error LLM response, cannot parse PRM score: {llm_response_text}")
+            return 0.0, f"PRM scoring failed: Invalid LLM response ({llm_response_text})"
 
         score_match = re.search(r"Score:\s*([0-9.]+)", llm_response_text, re.IGNORECASE)
         justification_match = re.search(r"Justification:\s*(.+)", llm_response_text, re.IGNORECASE | re.DOTALL)
 
         score = float(score_match.group(1)) if score_match else 0.0
-        justification = justification_match.group(1).strip() if justification_match else "未提供理由或解析錯誤。"
+        justification = justification_match.group(1).strip() if justification_match else "No justification provided or parsing error."
 
         if not score_match:
-            self.logger.warning(f"無法從回應中解析 PRM 分數。原始回應：'{llm_response_text}'")
+            self.logger.warning(f"Could not parse PRM score from response. Raw response: '{llm_response_text}'")
         return score, justification
 
     def _evaluate_lot_artifact_with_prm(self, artifact_content, artifact_type, layer_conceptual_step, main_task_description):
-        """ 使用 PRM 評估器評估 LOT 的中間成果。 """
-        if not self.prm_evaluator_llm: # 檢查 prm_evaluator_llm
-            self.logger.error("PRM 評估器 LLM 未設定。無法評估。")
-            return 0.0, "PRM 評估器未設定"
+        """ Evaluates an intermediate artifact of LOT using the PRM evaluator. """
+        if not self.prm_evaluator_llm: # Check prm_evaluator_llm
+            self.logger.error("PRM evaluator LLM not set. Cannot evaluate.")
+            return 0.0, "PRM evaluator not set"
         
         prompt = self._generate_prm_style_scoring_prompt_for_lot_artifact(artifact_content, artifact_type, layer_conceptual_step, main_task_description)
-        llm_response = self.prm_evaluator_llm.generate(prompt) # 使用 prm_evaluator_llm
+        llm_response = self.prm_evaluator_llm.generate(prompt) # Use prm_evaluator_llm
         score, justification = self._parse_llm_response_for_prm_score(llm_response)
-        self.logger.info(f"LOT 成果 ({artifact_type} for layer '{layer_conceptual_step[:30]}...') PRM 評估 - 分數: {score:.2f}")
+        self.logger.info(f"LOT artifact ({artifact_type} for layer '{layer_conceptual_step[:30]}...') PRM evaluation - Score: {score:.2f}")
         return score, justification
 
 
-# --- Gemini API 介面 ---
+# --- Gemini API Interface ---
 class GeminiLLMInterface:
-    def __init__(self, api_key, model_name="gemini-1.5-flash-latest", logger=None): # 添加 logger
+    def __init__(self, api_key, model_name="gemini-1.5-flash-latest", logger=None): # Added logger
         self.model = None
         self.logger = logger if logger else DefaultLogger()
         if not api_key:
-            self.logger.error("Gemini API 金鑰是必需的。LOT LLM 將無法運作。")
-            return # 允許創建實例，但模型將為 None
+            self.logger.error("Gemini API key is required. LOT LLM will not function.")
+            return # Allow instance creation, but model will be None
             
         try:
-            # 簡化 API key 配置，假設外部（如 MASOrchestrator）已處理 genai.configure
-            # 如果 LOT 單獨運行，則需要在其 __main__ 中配置
+            # Simplified API key configuration, assuming external (e.g., MASOrchestrator) has handled genai.configure
+            # If LOT runs standalone, configuration needs to be in its __main__
             self.model = genai.GenerativeModel(model_name)
-            self.logger.info(f"Gemini LLM 介面已使用模型 '{model_name}' 初始化。")
+            self.logger.info(f"Gemini LLM interface initialized with model '{model_name}'.")
         except Exception as e:
-            self.logger.error(f"初始化 LOT Gemini GenerativeModel ({model_name}) 失敗: {e}")
+            self.logger.error(f"Failed to initialize LOT Gemini GenerativeModel ({model_name}): {e}")
             self.model = None
 
 
-    def generate(self, prompt_text, temperature=0.7): # 添加 temperature
+    def generate(self, prompt_text, temperature=0.7): # Added temperature
         if not self.model:
-            self.logger.error("LOT.GeminiLLMInterface: LLM 模型未初始化。無法生成內容。")
-            return "錯誤 (LOT): LLM 未初始化"
+            self.logger.error("LOT.GeminiLLMInterface: LLM model not initialized. Cannot generate content.")
+            return "Error (LOT): LLM not initialized"
         try:
-            self.logger.info(f"\n--- 正在發送提示到 Gemini (LOT 操作 LLM) ---\n{prompt_text[:300]}...\n--- Gemini 提示結束 (LOT 操作 LLM) ---")
+            self.logger.info(f"\n--- Sending prompt to Gemini (LOT Operation LLM) ---\n{prompt_text[:300]}...\n--- End of Gemini prompt (LOT Operation LLM) ---")
             response = self.model.generate_content(
                 prompt_text,
-                generation_config=genai.types.GenerationConfig(temperature=temperature)
+                generation_config=genai.types.GenerationConfig(temperature=temperature) # Added temperature
             )
             llm_response_text = ""
             if hasattr(response, 'parts') and response.parts:
@@ -130,380 +130,384 @@ class GeminiLLMInterface:
             if not llm_response_text and hasattr(response, 'prompt_feedback') and \
                response.prompt_feedback.block_reason != genai.types.BlockReason.BLOCK_REASON_UNSPECIFIED:
                 block_reason_str = genai.types.BlockReason(response.prompt_feedback.block_reason).name
-                self.logger.warning(f"警告 (LOT): 提示因 {block_reason_str} 被封鎖。")
-                return f"錯誤 (LOT): 提示因 {block_reason_str} 被封鎖。"
+                self.logger.warning(f"Warning (LOT): Prompt blocked due to {block_reason_str}.")
+                return f"Error (LOT): Prompt blocked due to {block_reason_str}."
 
-            self.logger.info(f"--- 收到 Gemini 回應 (LOT 操作 LLM) ---\n{llm_response_text[:300]}...\n--- Gemini 回應結束 (LOT 操作 LLM) ---")
-            return llm_response_text if llm_response_text else "錯誤 (LOT)：未產生內容或提示有問題。"
+            self.logger.info(f"--- Received Gemini response (LOT Operation LLM) ---\n{llm_response_text[:300]}...\n--- End of Gemini response (LOT Operation LLM) ---")
+            return llm_response_text if llm_response_text else "Error (LOT): No content generated or issue with prompt."
 
         except Exception as e:
-            self.logger.error(f"呼叫 Gemini API 時發生錯誤 (LOT): {e}")
-            return f"錯誤 (LOT): Gemini API 錯誤 - {str(e)}"
+            self.logger.error(f"Error calling Gemini API (LOT): {e}")
+            return f"Error (LOT): Gemini API error - {str(e)}"
 
 
-# --- Layer-of-Thoughts (LoT) 實作 ---
+# --- Layer-of-Thoughts (LoT) Implementation ---
 class OptionThought(Thought):
-    def __init__(self, content, id, criterion, level=1, score=0.0, prm_justification="尚未評估"): # 繼承 score 和 prm_justification
+    def __init__(self, content, id, criterion, level=1, score=0.0, prm_justification="Not yet evaluated"): # Inherits score and prm_justification
         super().__init__(content, id, score, prm_justification)
-        self.criterion = criterion # 產生此選項所依據的標準
-        self.level = level # 標準的優先級別 (如果有的話)
+        self.criterion = criterion # The criterion based on which this option was generated
+        self.level = level # Priority level of the criterion (if any)
 
     def __repr__(self):
         return f"OptionThought(id={self.id}, level={self.level}, criterion='{self.criterion}', score={self.score:.2f}, content='{self.content[:20]}...')"
 
 class LayerThought(Thought):
-    def __init__(self, content, id, layer_index, score=0.0, prm_justification="尚未評估"): # content 是概念步驟描述
-        super().__init__(content, id, score, prm_justification) # 此 score 將代表該層次聚合輸出的 PRM 分數
+    def __init__(self, content, id, layer_index, score=0.0, prm_justification="Not yet evaluated"): # content is the conceptual step description
+        super().__init__(content, id, score, prm_justification) # This score will represent the PRM score of the layer's aggregated output
         self.layer_index = layer_index
-        self.option_thoughts = [] # 屬於此層次的 OptionThought 列表
+        self.option_thoughts = [] # List of OptionThoughts belonging to this layer
 
     def __repr__(self):
         return f"LayerThought(id={self.id}, layer_index={self.layer_index}, options={len(self.option_thoughts)}, score={self.score:.2f}, content='{self.content[:20]}...')"
 
 class LayerOfThoughts(GraphOfThoughts):
-    def __init__(self, llm_interface, logger=None, prm_evaluator_llm=None): # 添加 prm_evaluator_llm
+    def __init__(self, llm_interface, logger=None, prm_evaluator_llm=None): # Added prm_evaluator_llm
         super().__init__(llm_interface, logger)
-        self.layers = [] # LayerThought 物件的有序列表
-        # 如果未提供專用的 PRM 評估 LLM，則預設使用與操作相同的 LLM
+        self.layers = [] # Ordered list of LayerThought objects
+        # If no dedicated PRM evaluation LLM is provided, default to the same LLM as for operations
         self.prm_evaluator_llm = prm_evaluator_llm if prm_evaluator_llm else llm_interface
         if not self.prm_evaluator_llm:
-             self.logger.warning("LOT 未配置 PRM 評估器 LLM。PRM 評分功能將受限。")
+             self.logger.warning("LOT is not configured with a PRM evaluator LLM. PRM scoring functionality will be limited.")
 
 
     def add_layer_thought(self, conceptual_step_description):
         layer_index = len(self.layers)
         layer_thought_id = f"L{layer_index}_main"
         
-        if layer_thought_id in self.thoughts:
-            self.logger.warning(f"ID 為 '{layer_thought_id}' 的 LayerThought 已存在。將不會重複新增。")
+        if layer_thought_id in self.thoughts: # Check if already exists
+            self.logger.warning(f"LayerThought with ID '{layer_thought_id}' already exists. Will not add again.")
             return self.thoughts[layer_thought_id]
 
-        # LayerThought 的初始分數和理由在聚合後更新
+        # LayerThought's initial score and justification are updated after aggregation
         layer_thought = LayerThought(conceptual_step_description, layer_thought_id, layer_index)
-        self.add_thought_object(layer_thought) # 使用基類的方法添加
+        self.add_thought_object(layer_thought) # Add using base class method
         self.layers.append(layer_thought)
-        self.logger.info(f"已新增層次 {layer_index}: {layer_thought}")
+        self.logger.info(f"Added layer {layer_index}: {layer_thought}")
         return layer_thought
 
     def _generate_prompt_for_option_thought_criteria(self, layer_thought_content, previous_layer_output=None, main_task_description=None):
-        prompt = f"主要任務目標：'{main_task_description}'\n" if main_task_description else ""
-        prompt += f"針對當前概念步驟：'{layer_thought_content}'\n"
+        prompt = f"Main Task Objective: '{main_task_description}'\n" if main_task_description else ""
+        prompt += f"For the current conceptual step: '{layer_thought_content}'\n"
         if previous_layer_output:
-            prompt += f"基於先前層次的輸出：'{previous_layer_output[:200]}...' (此輸出旨在推進主要任務)\n"
-        prompt += "請為此概念步驟建議一系列具體的、可操作的「標準」或「探索選項」，以生成多樣化且有助於解決主要任務的部分解決方案。如果標準有優先順序，請註明 (例如：標準 A (等級 1); 標準 B (等級 1); 標準 C (等級 2))。\n請僅回傳標準列表，以分號分隔。"
+            prompt += f"Based on the output from the previous layer: '{previous_layer_output[:200]}...' (this output aims to advance the main task)\n"
+        prompt += "Please suggest a series of specific, actionable 'criteria' or 'exploration options' for this conceptual step to generate diverse partial solutions helpful for the main task. If criteria have priorities, please indicate them (e.g., Criterion A (Level 1); Criterion B (Level 1); Criterion C (Level 2)).\nPlease return only the list of criteria, separated by semicolons."
         return prompt
         
     def _generate_prompt_for_option_thought_solution(self, criterion, layer_conceptual_step, previous_layer_output=None, main_task_description=None):
-        prompt = f"主要任務目標：'{main_task_description}'\n" if main_task_description else ""
-        prompt += f"當前概念步驟：'{layer_conceptual_step}'\n"
+        prompt = f"Main Task Objective: '{main_task_description}'\n" if main_task_description else ""
+        prompt += f"Current conceptual step: '{layer_conceptual_step}'\n"
         if previous_layer_output:
-            prompt += f"先前層次輸出內容：'{previous_layer_output[:200]}...'\n"
-        prompt += f"現在，請針對以下「標準/探索選項」生成一個具體的部分解決方案或詳細闡述：\n標準/探索選項：'{criterion}'\n\n你的部分解決方案（確保它與主要任務目標相關）："
+            prompt += f"Previous layer output content: '{previous_layer_output[:200]}...'\n"
+        prompt += f"Now, for the following 'criterion/exploration option', generate a concrete partial solution or detailed elaboration:\nCriterion/Exploration Option: '{criterion}'\n\nYour partial solution (ensure it is relevant to the main task objective):"
         return prompt
 
     def generate_and_evaluate_option_thoughts_for_layer(self, layer_id, main_task_description, previous_layer_aggregated_output=None):
         if layer_id not in self.thoughts or not isinstance(self.thoughts[layer_id], LayerThought):
-            self.logger.error(f"錯誤: 找不到 ID 為 {layer_id} 的 LayerThought。")
+            self.logger.error(f"Error: LayerThought with ID {layer_id} not found.")
             return []
 
         current_layer_thought = self.thoughts[layer_id]
         
+        # Generate criteria for option thoughts
         criteria_prompt = self._generate_prompt_for_option_thought_criteria(
             current_layer_thought.content, 
             previous_layer_aggregated_output,
-            main_task_description # 傳遞主要任務描述
+            main_task_description # Pass main task description
         )
-        llm_criteria_response = self.llm.generate(criteria_prompt, temperature=0.7) # 獲取標準時溫度可以稍高
-        if llm_criteria_response.startswith("錯誤 (LOT):"):
-            self.logger.error(f"無法為層次 {current_layer_thought.layer_index} 獲取標準: {llm_criteria_response}")
+        llm_criteria_response = self.llm.generate(criteria_prompt, temperature=0.7) # Temperature can be slightly higher for criteria
+        if llm_criteria_response.startswith("Error (LOT):"):
+            self.logger.error(f"Could not get criteria for layer {current_layer_thought.layer_index}: {llm_criteria_response}")
             return []
-        parsed_criteria = self._parse_criteria_from_llm(llm_criteria_response) 
+        parsed_criteria = self._parse_criteria_from_llm(llm_criteria_response) # Parse criteria from LLM response
 
         generated_options_with_scores = []
         for i, crit_info in enumerate(parsed_criteria):
             criterion_text = crit_info['text']
-            criterion_level = crit_info.get('level', 1)
+            criterion_level = crit_info.get('level', 1) # Default level 1 if not specified
 
+            # Generate solution for each criterion
             solution_prompt = self._generate_prompt_for_option_thought_solution(
                 criterion_text,
-                current_layer_thought.content,
+                current_layer_thought.content, # layer_conceptual_step
                 previous_layer_aggregated_output,
-                main_task_description # 傳遞主要任務描述
+                main_task_description # Pass main task description
             )
-            llm_solution_response = self.llm.generate(solution_prompt, temperature=0.6) # 生成解決方案時溫度適中
-            if llm_solution_response.startswith("錯誤 (LOT):"):
-                self.logger.warning(f"無法為標準 '{criterion_text}' 生成解決方案: {llm_solution_response}")
-                continue 
+            llm_solution_response = self.llm.generate(solution_prompt, temperature=0.6) # Moderate temperature for solution generation
+            if llm_solution_response.startswith("Error (LOT):"): # Handle LLM error
+                self.logger.warning(f"Could not generate solution for criterion '{criterion_text}': {llm_solution_response}")
+                continue # Skip this criterion
 
             solution_content = llm_solution_response.strip()
             option_id = f"{current_layer_thought.id}_Opt{i}"
             
-            # 創建 OptionThought，初始分數為0，稍後由 PRM 評估器更新
-            option_thought = OptionThought(solution_content, option_id, criterion_text, level=criterion_level)
-            self.add_thought_object(option_thought) # 添加到全局 thoughts 字典
+            # Create OptionThought, initial score is 0, will be updated by PRM evaluator
+            option_thought = OptionThought(solution_content, option_id, criterion_text, level=criterion_level) # score will be PRM evaluated
+            self.add_thought_object(option_thought) # Add to global thoughts dictionary
             
-            # 建立父子關係
+            # Establish parent-child relationship
             if current_layer_thought not in option_thought.parents: option_thought.parents.append(current_layer_thought)
-            if option_thought not in current_layer_thought.children: current_layer_thought.children.append(option_thought)
+            if option_thought not in current_layer_thought.children: current_layer_thought.children.append(option_thought) # OptionThought is a child of LayerThought
             
-            # 對新生成的 OptionThought 進行 PRM 評估
+            # Perform PRM evaluation for the newly generated OptionThought
             prm_score, prm_justification = self._evaluate_lot_artifact_with_prm(
                 option_thought.content,
-                "選項思維",
-                current_layer_thought.content, # 層次概念步驟
-                main_task_description          # 主要任務目標
+                "Option Thought", # artifact_type
+                current_layer_thought.content, # layer_conceptual_step
+                main_task_description          # main_task_description
             )
             option_thought.score = prm_score
             option_thought.prm_justification = prm_justification
             
-            if option_thought not in current_layer_thought.option_thoughts: # 確保不重複添加
-                 current_layer_thought.option_thoughts.append(option_thought)
+            if option_thought not in current_layer_thought.option_thoughts: # Ensure no duplicates
+                 current_layer_thought.option_thoughts.append(option_thought) # Add to the layer's list of options
 
-            generated_options_with_scores.append(option_thought)
-            self.logger.info(f"已為層次 {current_layer_thought.layer_index} 生成並評估 OptionThought: {option_thought}")
+            generated_options_with_scores.append(option_thought) # Keep track of generated options
+            self.logger.info(f"Generated and evaluated OptionThought for layer {current_layer_thought.layer_index}: {option_thought}")
             
-        return generated_options_with_scores # 返回帶有 PRM 分數的 OptionThought 物件列表
+        return generated_options_with_scores # Return list of OptionThought objects with PRM scores
 
     def _parse_criteria_from_llm(self, llm_response_text):
         criteria = []
-        if not llm_response_text or not isinstance(llm_response_text, str) or llm_response_text.startswith("錯誤 (LOT):"):
-            self.logger.warning(f"LLM 回應的標準為空或格式不正確: {llm_response_text}")
-            return [{'text': "預設標準 (因解析錯誤)", 'level': 1}]
+        if not llm_response_text or not isinstance(llm_response_text, str) or llm_response_text.startswith("Error (LOT):"):
+            self.logger.warning(f"Criteria from LLM response is empty or incorrectly formatted: {llm_response_text}")
+            return [{'text': "Default criterion (due to parsing error)", 'level': 1}] # Default if parsing fails
 
         parts = llm_response_text.split(';')
         for part in parts:
             part = part.strip()
             if not part: continue
-            level = 1 # 預設等級
+            level = 1 # Default level
             text = part
-            # 嘗試解析 "(等級 X)"
+            # Try to parse "(Level X)" or "(等級 X)"
             match = re.search(r'\((?:level|等級)\s*(\d+)\)$', part, re.IGNORECASE)
             if match:
                 try:
                     level = int(match.group(1))
-                    text = re.sub(r'\s*\((?:level|等級)\s*\d+\)$', '', part, flags=re.IGNORECASE).strip()
+                    text = re.sub(r'\s*\((?:level|等級)\s*\d+\)$', '', part, flags=re.IGNORECASE).strip() # Remove level part from text
                 except ValueError:
-                    self.logger.warning(f"無法解析標準 '{part}' 中的等級，使用預設等級 1。")
+                    self.logger.warning(f"Could not parse level from criterion '{part}', using default level 1.")
             criteria.append({'text': text, 'level': level})
         
-        if not criteria: # 如果分割後沒有任何內容
-             self.logger.warning(f"無法從 '{llm_response_text}' 解析出任何標準，使用回應本身作為單一標準。")
+        if not criteria: # If no criteria after splitting
+             self.logger.warning(f"Could not parse any criteria from '{llm_response_text}', using response itself as a single criterion.")
              return [{'text': llm_response_text.strip(), 'level': 1}]
         return criteria
         
     def aggregate_and_evaluate_option_thoughts_in_layer(self, layer_id, main_task_description, aggregation_strategy='best_prm_score'):
         if layer_id not in self.thoughts or not isinstance(self.thoughts[layer_id], LayerThought):
-            self.logger.error(f"錯誤: 找不到 ID 為 {layer_id} 的 LayerThought 進行聚合。")
-            return None, 0.0, "LayerThought 未找到" # 返回內容、分數、理由
+            self.logger.error(f"Error: LayerThought with ID {layer_id} not found for aggregation.")
+            return None, 0.0, "LayerThought not found" # Return content, score, justification
 
         current_layer_thought = self.thoughts[layer_id]
-        options = current_layer_thought.option_thoughts # 這些選項應該已經有了 PRM 分數
+        options = current_layer_thought.option_thoughts # These options should already have PRM scores
         if not options:
-            self.logger.warning(f"層次 {current_layer_thought.layer_index} 中沒有 OptionThought 可供聚合。")
-            # 更新 LayerThought 的分數和理由以反映沒有選項
+            self.logger.warning(f"No OptionThoughts to aggregate in layer {current_layer_thought.layer_index}.")
+            # Update LayerThought's score and justification to reflect no options
             current_layer_thought.score = 0.0 
-            current_layer_thought.prm_justification = "沒有可聚合的選項思維。"
-            return f"層次 {current_layer_thought.layer_index} 沒有生成任何選項。", 0.0, current_layer_thought.prm_justification
+            current_layer_thought.prm_justification = "No option thoughts available for aggregation."
+            return f"Layer {current_layer_thought.layer_index} did not generate any options.", 0.0, current_layer_thought.prm_justification
 
-        aggregated_content = f"從層次 {current_layer_thought.layer_index} (概念: '{current_layer_thought.content[:30]}...') 使用策略 '{aggregation_strategy}' 聚合的結果:\n"
+        aggregated_content = f"Aggregated result from layer {current_layer_thought.layer_index} (Concept: '{current_layer_thought.content[:30]}...') using strategy '{aggregation_strategy}':\n"
         
-        # 根據 PRM 分數排序選項
-        options.sort(key=lambda ot: (ot.level, -ot.score)) # 按等級升序，同等級按 PRM 分數降序
+        # Sort options by PRM score (and level as primary sort key if applicable)
+        options.sort(key=lambda ot: (ot.level, -ot.score)) # Sort by level ascending, then by PRM score descending within the same level
 
         if aggregation_strategy == 'best_prm_score': 
-            if options:
-                 best_option = options[0] # 已經排序過，第一個就是最好的
-                 aggregated_content += (f"最佳選項 (標準: '{best_option.criterion}', 等級: {best_option.level}, "
-                                       f"PRM分數: {best_option.score:.2f}):\n{best_option.content}")
+            if options: # Check if options list is not empty
+                 best_option = options[0] # Already sorted, first one is the best
+                 aggregated_content += (f"Best option (Criterion: '{best_option.criterion}', Level: {best_option.level}, "
+                                       f"PRM Score: {best_option.score:.2f}):\n{best_option.content}")
             else:
-                aggregated_content += "沒有可選擇的最佳選項。"
-        elif aggregation_strategy == 'weighted_sum_content' or aggregation_strategy == 'all_content_ranked': # 示例：將所有選項按 PRM 分數排序後串聯
-            for opt in options: # options 已經按 PRM 分數排序
-                aggregated_content += (f"- (標準: '{opt.criterion}', 等級: {opt.level}, "
-                                       f"PRM分數: {opt.score:.2f}, 理由: {opt.prm_justification[:50]}...):\n {opt.content}\n\n")
-        else: # 預設也使用最佳 PRM 分數的選項
-            self.logger.warning(f"未知的聚合策略 '{aggregation_strategy}'，將使用 'best_prm_score'。")
+                aggregated_content += "No best option to select." # Should not happen if 'options' check above is correct
+        elif aggregation_strategy == 'weighted_sum_content' or aggregation_strategy == 'all_content_ranked': # Example: Concatenate all options ranked by PRM score
+            for opt in options: # options are already sorted by PRM score
+                aggregated_content += (f"- (Criterion: '{opt.criterion}', Level: {opt.level}, "
+                                       f"PRM Score: {opt.score:.2f}, Justification: {opt.prm_justification[:50]}...):\n {opt.content}\n\n")
+        else: # Default to best PRM score option
+            self.logger.warning(f"Unknown aggregation strategy '{aggregation_strategy}', will use 'best_prm_score'.")
             if options:
-                 best_option = options[0]
-                 aggregated_content += (f"最佳選項 (標準: '{best_option.criterion}', 等級: {best_option.level}, "
-                                       f"PRM分數: {best_option.score:.2f}):\n{best_option.content}")
+                 best_option = options[0] # options[0] is the best after sorting
+                 aggregated_content += (f"Best option (Criterion: '{best_option.criterion}', Level: {best_option.level}, "
+                                       f"PRM Score: {best_option.score:.2f}):\n{best_option.content}")
             else:
-                aggregated_content += "沒有可選擇的最佳選項。"
+                aggregated_content += "No best option to select."
         
-        # 對聚合後的層次輸出進行 PRM 評估
+        # Perform PRM evaluation on the aggregated layer output
         layer_output_prm_score, layer_output_prm_justification = self._evaluate_lot_artifact_with_prm(
             aggregated_content,
-            "層次聚合輸出",
-            current_layer_thought.content, # 層次概念步驟
-            main_task_description          # 主要任務目標
+            "Layer Aggregation Output",    # artifact_type
+            current_layer_thought.content, # layer_conceptual_step
+            main_task_description          # main_task_description
         )
-        # 更新 LayerThought 本身的分數和理由
+        # Update the LayerThought itself with the PRM score and justification of its aggregated output
         current_layer_thought.score = layer_output_prm_score
         current_layer_thought.prm_justification = layer_output_prm_justification
         
-        self.logger.info(f"已聚合層次 {current_layer_thought.layer_index} 中的選項。聚合輸出 PRM 分數: {layer_output_prm_score:.2f}")
+        self.logger.info(f"Aggregated options in layer {current_layer_thought.layer_index}. Aggregated output PRM score: {layer_output_prm_score:.2f}")
         return aggregated_content, layer_output_prm_score, layer_output_prm_justification
 
 
     def run_pipeline(self, conceptual_steps, main_task_description, initial_input=None, min_layer_prm_score_threshold=0.3):
-        # main_task_description 是整個 LOT 流程試圖解決的最終任務
-        # min_layer_prm_score_threshold: 如果某個層次的聚合輸出 PRM 分數低於此閾值，可以考慮提前終止或採取補救措施
+        # main_task_description is the final task the entire LOT process is trying to solve
+        # min_layer_prm_score_threshold: If a layer's aggregated output PRM score is below this, consider early termination or remedial actions
         
         previous_layer_output_content = initial_input
-        final_pipeline_output = None # 最終的、被認為成功的管線輸出
+        final_pipeline_output = None # The final, considered successful, pipeline output
         
-        self.logger.info(f"LOT 管線開始執行，主要任務目標: {main_task_description}")
+        self.logger.info(f"LOT pipeline execution started, Main Task Objective: {main_task_description}")
 
         for i, step_description in enumerate(conceptual_steps):
-            self.logger.info(f"\n--- 正在處理層次 {i}: {step_description} ---")
-            layer_thought = self.add_layer_thought(step_description) # LayerThought 的分數此時為預設
+            self.logger.info(f"\n--- Processing Layer {i}: {step_description} ---")
+            layer_thought = self.add_layer_thought(step_description) # LayerThought's score is default at this point
             
-            # 為當前層次生成並評估選項思維
-            # 需要傳遞 main_task_description 以便 PRM 評估選項思維的相關性
+            # Generate and evaluate option thoughts for the current layer
+            # Need to pass main_task_description for PRM evaluation of option thoughts' relevance
             option_thoughts = self.generate_and_evaluate_option_thoughts_for_layer(
                 layer_thought.id, 
-                main_task_description, # 傳遞主要任務
+                main_task_description, # Pass the main task
                 previous_layer_output_content
             )
             
             if not option_thoughts:
-                self.logger.warning(f"層次 {i} 未能生成任何選項思維。可能需要檢查標準生成或解決方案生成提示。")
-                # 即使沒有選項，也嘗試聚合（會得到“沒有選項”的訊息），然後讓 PRM 評估這個“空”聚合
+                self.logger.warning(f"Layer {i} failed to generate any option thoughts. May need to check criteria generation or solution generation prompts.")
+                # Even if no options, try to aggregate (will get "no options" message), then let PRM evaluate this "empty" aggregation
             
-            # 聚合本層次的選項思維，並對聚合結果進行 PRM 評估
-            # 聚合策略可以基於選項的 PRM 分數
+            # Aggregate option thoughts of this layer, and perform PRM evaluation on the aggregated result
+            # Aggregation strategy can be based on option's PRM scores
             aggregated_output_content, layer_prm_score, layer_prm_justification = self.aggregate_and_evaluate_option_thoughts_in_layer(
                 layer_thought.id, 
-                main_task_description, # 傳遞主要任務
-                aggregation_strategy='all_content_ranked' # 或者 'best_prm_score'
+                main_task_description, # Pass the main task
+                aggregation_strategy='all_content_ranked' # Or 'best_prm_score'
             )
             
-            # LayerThought 的 score 和 prm_justification 已在 aggregate_and_evaluate... 中更新
+            # LayerThought's score and prm_justification are updated within aggregate_and_evaluate...
             
-            if aggregated_output_content is None: # 理論上 aggregate... 應該總返回一些東西，除非 layer_id 錯誤
-                self.logger.error(f"層次 {i} 聚合時發生嚴重錯誤。正在停止管線。")
-                final_pipeline_output = previous_layer_output_content # 使用上一層的輸出作為最終結果
+            if aggregated_output_content is None: # Theoretically aggregate... should always return something unless layer_id is wrong
+                self.logger.error(f"Serious error during aggregation of layer {i}. Stopping pipeline.")
+                final_pipeline_output = previous_layer_output_content # Use previous layer's output as final result
                 break 
             
-            self.logger.info(f"層次 {i} 聚合輸出 PRM 分數: {layer_prm_score:.2f}. 理由: {layer_prm_justification}")
+            self.logger.info(f"Layer {i} aggregated output PRM score: {layer_prm_score:.2f}. Justification: {layer_prm_justification}")
 
             if layer_prm_score < min_layer_prm_score_threshold:
-                self.logger.warning(f"層次 {i} 的聚合輸出 PRM 分數 ({layer_prm_score:.2f}) 低於閾值 ({min_layer_prm_score_threshold})。")
-                # 在這裡可以實現更複雜的邏輯，例如：
-                # 1. 嘗試不同的聚合策略
-                # 2. 重新生成該層次的選項思維（可能調整提示或溫度）
-                # 3. 回溯到前一個層次
-                # 4. 提前終止管線
-                # 為了簡化，我們這裡只記錄警告，但仍然繼續（或可以選擇終止）
-                self.logger.warning(f"管線可能無法達到最佳效果。考慮終止或採取補救措施。目前將繼續...")
-                # 如果決定終止：
-                # final_pipeline_output = previous_layer_output_content # 或 aggregated_output_content，取決於策略
+                self.logger.warning(f"Layer {i}'s aggregated output PRM score ({layer_prm_score:.2f}) is below threshold ({min_layer_prm_score_threshold}).")
+                # More complex logic could be implemented here, e.g.:
+                # 1. Try different aggregation strategies
+                # 2. Regenerate option thoughts for this layer (perhaps adjusting prompts or temperature)
+                # 3. Backtrack to a previous layer
+                # 4. Terminate pipeline early
+                # For simplicity, here we just log a warning but continue (or could choose to terminate)
+                self.logger.warning(f"Pipeline may not achieve optimal results. Consider termination or remedial actions. Continuing for now...")
+                # If deciding to terminate:
+                # final_pipeline_output = previous_layer_output_content # Or aggregated_output_content, depending on strategy
                 # break
 
             previous_layer_output_content = aggregated_output_content
-            final_pipeline_output = aggregated_output_content # 總是指向最後一個成功的聚合輸出
+            final_pipeline_output = aggregated_output_content # Always points to the last successful aggregated output
 
-        self.logger.info(f"LOT 管線執行完畢。最終輸出 PRM 分數 (來自最後一層): {self.layers[-1].score if self.layers else 'N/A'}")
+        self.logger.info(f"LOT pipeline execution finished. Final output PRM score (from last layer): {self.layers[-1].score if self.layers else 'N/A'}")
         return final_pipeline_output
 
-# --- 將範例用法封裝到函式中 ---
+# --- Encapsulate example usage into a function ---
 def run_lot_example_workflow_with_prm(api_key):
     logger_example = DefaultLogger()
-    logger_example.info(f"正在使用 API 金鑰執行 LOT (PRM風格) 範例: ...{api_key[-4:]}")
+    logger_example.info(f"Running LOT (PRM-style) example with API key: ...{api_key[-4:]}")
     
-    # 配置 Gemini API (如果尚未在全局配置)
-    # 為了獨立運行，這裡做一次配置檢查
+    # Configure Gemini API (if not already configured globally)
+    # For standalone execution, do a configuration check here
     try:
-        if not getattr(genai, '_is_configured_by_lot_example', False): # 避免重複配置
+        if not getattr(genai, '_is_configured_by_lot_example', False): # Avoid duplicate configuration
             genai.configure(api_key=api_key)
-            setattr(genai, '_is_configured_by_lot_example', True)
-            logger_example.info("已為 LOT 範例配置 Gemini API。")
+            setattr(genai, '_is_configured_by_lot_example', True) # Mark as configured by this example
+            logger_example.info("Gemini API configured for LOT example.")
     except Exception as e:
-        logger_example.error(f"配置 Gemini API 時發生錯誤: {e}")
+        logger_example.error(f"Error configuring Gemini API: {e}")
         return
 
     try:
-        # 操作型 LLM (用於生成標準、生成選項解決方案等)
+        # Operational LLM (for generating criteria, option solutions, etc.)
         llm_operator = GeminiLLMInterface(api_key=api_key, model_name="gemini-1.5-flash-latest", logger=logger_example)
-        # PRM 評估器 LLM (可以與操作型 LLM 相同，也可以是另一個更強的或專門微調的評估模型)
-        # 為了演示，這裡使用相同的 LLM 實例
+        # PRM Evaluator LLM (can be the same as operational LLM, or another, possibly stronger or fine-tuned, evaluation model)
+        # For demonstration, using the same LLM instance here
         llm_prm_evaluator = llm_operator 
         
-        if not llm_operator.model: # 檢查模型是否成功初始化
-             logger_example.error("LOT 操作 LLM 未能初始化。中止範例。")
+        if not llm_operator.model: # Check if model initialized successfully
+             logger_example.error("LOT operational LLM failed to initialize. Aborting example.")
              return
 
-    except ValueError as e:
-        logger_example.error(f"初始化 LLM 介面時發生錯誤: {e}")
+    except ValueError as e: # Catch potential errors from LLM interface init
+        logger_example.error(f"Error initializing LLM interface: {e}")
         return
     
     lot_system = LayerOfThoughts(llm_operator, logger=logger_example, prm_evaluator_llm=llm_prm_evaluator)
 
-    # 主要任務目標：為一個即將在夏季舉辦的戶外音樂節制定一份全面的市場推廣計劃。
-    # 預算：中等。目標受眾：18-35歲的年輕人。地點：城市公園。
+    # Main Task Objective: Develop a comprehensive marketing plan for an outdoor music festival to be held in the summer.
+    # Budget: Medium. Target Audience: Young adults aged 18-35. Location: City park.
     main_task_music_festival = (
-        "為一個即將在夏季舉辦、地點在城市公園、預算中等、目標受眾為18-35歲年輕人的戶外音樂節，"
-        "制定一份全面的市場推廣計劃，旨在最大化參與人數和品牌知名度。"
+        "Develop a comprehensive marketing plan for an outdoor music festival to be held in summer, "
+        "located in a city park, with a medium budget, targeting young adults aged 18-35, "
+        "aiming to maximize attendance and brand awareness."
     )
 
     conceptual_steps_marketing_plan = [
-        "階段 1: 市場與受眾分析 - 深入了解目標受眾的偏好、常去的社交媒體平台以及對音樂節的期望。",
-        "階段 2: 核心信息與品牌定位 - 確定音樂節的獨特賣點 (USP)，並制定吸引目標受眾的核心宣傳信息和品牌形象。",
-        "階段 3: 推廣渠道與活動策劃 - 選擇最有效的線上和線下推廣渠道，並策劃具體的預熱活動、現場互動和後續宣傳活動。",
-        "階段 4: 預算分配與成效衡量 - 為各項推廣活動合理分配預算，並設定關鍵績效指標 (KPIs) 以衡量計劃的成效。"
+        "Phase 1: Market and Audience Analysis - In-depth understanding of target audience preferences, frequented social media platforms, and expectations for a music festival.",
+        "Phase 2: Core Messaging and Brand Positioning - Identify the unique selling proposition (USP) of the festival and develop core promotional messages and brand image appealing to the target audience.",
+        "Phase 3: Promotion Channels and Activity Planning - Select the most effective online and offline promotion channels, and plan specific pre-launch activities, on-site interactions, and post-event publicity.",
+        "Phase 4: Budget Allocation and Performance Measurement - Rationally allocate budget for various promotional activities and set key performance indicators (KPIs) to measure the plan's effectiveness."
     ]
     
-    # 初始輸入可以為空，或包含一些對主要任務的初步想法/約束
-    initial_input_for_marketing = "音樂節主題初步定為「城市綠洲之聲」，強調自然與音樂的結合。"
+    # Initial input can be empty or contain some preliminary ideas/constraints for the main task
+    initial_input_for_marketing = "The preliminary theme for the music festival is 'Urban Oasis Sounds', emphasizing the combination of nature and music."
 
-    logger_example.info(f"\nLoT 管線開始執行，主要任務: {main_task_music_festival}")
+    logger_example.info(f"\nLoT Pipeline execution started, Main Task: {main_task_music_festival}")
     final_marketing_plan = lot_system.run_pipeline(
         conceptual_steps_marketing_plan, 
-        main_task_description=main_task_music_festival, # 傳遞主要任務描述
+        main_task_description=main_task_music_festival, # Pass the main task description
         initial_input=initial_input_for_marketing,
-        min_layer_prm_score_threshold=0.4 # 設定一個層次 PRM 分數閾值
+        min_layer_prm_score_threshold=0.4 # Set a layer PRM score threshold
     )
 
-    logger_example.info(f"\n--- LoT 管線的最終市場推廣計劃 (或最後成功的層次輸出) ---")
+    logger_example.info(f"\n--- LoT Pipeline's Final Marketing Plan (or last successful layer output) ---")
     if final_marketing_plan:
         logger_example.info(final_marketing_plan)
-        # 打印最後一層的 PRM 分數和理由
+        # Print the PRM score and justification of the last layer
         if lot_system.layers:
             last_layer = lot_system.layers[-1]
-            logger_example.info(f"\n最終層次 (L{last_layer.layer_index}) 的 PRM 評估:")
-            logger_example.info(f"  分數: {last_layer.score:.2f}")
-            logger_example.info(f"  理由: {last_layer.prm_justification}")
+            logger_example.info(f"\nPRM Evaluation of the Final Layer (L{last_layer.layer_index}):")
+            logger_example.info(f"  Score: {last_layer.score:.2f}")
+            logger_example.info(f"  Justification: {last_layer.prm_justification}")
     else:
-        logger_example.warning("管線未能產生最終輸出。")
+        logger_example.warning("Pipeline failed to produce a final output.")
     
-    logger_example.info("\n--- LOT (PRM風格) 範例用法結束 ---")
+    logger_example.info("\n--- End of LOT (PRM-style) Example Usage ---")
 
-# --- 主執行區塊 ---
+# --- Main Execution Block ---
 if __name__ == "__main__":
     API_KEY = os.getenv("GEMINI_API_KEY")
-    logger_main = DefaultLogger()
+    logger_main = DefaultLogger() # Use default logger for main block
 
     if not API_KEY:
-        logger_main.warning("警告：未在環境變數中找到 GEMINI_API_KEY。")
-        logger_main.warning("請設定 GEMINI_API_KEY 環境變數或在 LOT.py 中提供 API 金鑰以執行範例。")
+        logger_main.warning("Warning: GEMINI_API_KEY not found in environment variables.")
+        logger_main.warning("Please set the GEMINI_API_KEY environment variable or provide the API key in LOT.py to run the example.")
     
+    # Check if API_KEY is not None AND not the placeholder
     if API_KEY and API_KEY != "YOUR_GEMINI_API_KEY_HERE":
         run_lot_example_workflow_with_prm(API_KEY)
-    elif API_KEY == "YOUR_GEMINI_API_KEY_HERE":
+    elif API_KEY == "YOUR_GEMINI_API_KEY_HERE": # If it IS the placeholder
         logger_main.error("*****************************************************************")
-        logger_main.error("警告：您使用的是預設的佔位符 API 金鑰。")
-        logger_main.error("請將程式碼中的 'YOUR_GEMINI_API_KEY_HERE' 替換為您真實的 Gemini API 金鑰，或設定環境變數。")
-        logger_main.error("範例執行可能會失敗或產生非預期結果。")
+        logger_main.error("Warning: You are using the default placeholder API key.")
+        logger_main.error("Please replace 'YOUR_GEMINI_API_KEY_HERE' in the code with your actual Gemini API key, or set the environment variable.")
+        logger_main.error("Example execution may fail or produce unexpected results.")
         logger_main.error("*****************************************************************")
-        # 仍然嘗試執行，讓 GeminiLLMInterface 內部處理或拋出錯誤
+        # Still attempt to run, let GeminiLLMInterface handle or raise error internally
         try:
             run_lot_example_workflow_with_prm(API_KEY)
-        except Exception as e: # 捕捉 GeminiLLMInterface 初始化時可能因無效 key 拋出的錯誤
-             logger_main.error(f"由於 API 金鑰問題導致範例執行失敗: {e}")
-    else: # API_KEY is None
-        logger_main.error("沒有有效的 API 金鑰，範例中的 LLM 互動將失敗。")
+        except Exception as e: # Catch errors from GeminiLLMInterface init due to invalid key
+             logger_main.error(f"Example execution failed due to API key issue: {e}")
+    else: # API_KEY is None (already warned above, but this handles the execution path)
+        logger_main.error("No valid API key; LLM interactions in the example will fail.")
+        # Optionally, still try to run to see how far it gets or if it handles the missing key gracefully.
         try:
-            run_lot_example_workflow_with_prm(API_KEY) 
+            run_lot_example_workflow_with_prm(API_KEY) # API_KEY is None here
         except Exception as e:
-             logger_main.error(f"由於 API 金鑰問題導致範例執行失敗: {e}")
-
+             logger_main.error(f"Example execution failed due to API key issue: {e}")
