@@ -17,6 +17,8 @@ from nltk.tokenize import word_tokenize
 from rouge_score import rouge_scorer
 from bert_score import score as bert_score_calc
 import urllib # For catching network errors during NLTK download
+nltk.download("wordnet")
+nltk.download("omw-1.4")
 
 # --- Terminal Logger (Define early as it's used by dummies) ---
 class TerminalLogger:
@@ -1208,12 +1210,16 @@ def main():
     else:
         results_main_df = pd.DataFrame(all_results_main)
         results_prm_iterations_df = pd.DataFrame(all_prm_iteration_data)
-        output_excel_filename = r"D:\data_science\final_project\MAS-PRM-main\evaluation\evaluation_results_with_prm_iterations.xlsx"
+        output_excel_filename1 = "D:\\data_science\\final_project\\MAS-PRM\\evaluation\\evaluation_results_with_prm_iterations.xlsx"
+        output_excel_filename2 = "D:\\data_science\\final_project\\MAS-PRM\\evaluation\\PRM_Iteration_Details.xlsx"
         try:
-            with pd.ExcelWriter(output_excel_filename, engine='openpyxl') as writer:
+            with pd.ExcelWriter(output_excel_filename1, engine='openpyxl') as writer:
                 results_main_df.to_excel(writer, sheet_name='Main_Results', index=False)
                 results_prm_iterations_df.to_excel(writer, sheet_name='PRM_Iteration_Details', index=False)
-            logger.info(f"Detailed evaluation results and PRM iteration data saved to: {output_excel_filename}")
+            logger.info(f"Detailed evaluation results and PRM iteration data saved to: {output_excel_filename1}n")
+            # results_main_df.to_csv(output_excel_filename1, index=False, encoding="utf-8-sig")
+            # results_prm_iterations_df.to_csv(output_excel_filename2, index=False, encoding="utf-8-sig")
+            # logger.info(f"Detailed evaluation results and PRM iteration data saved to: \n {output_excel_filename1} \n {output_excel_filename2}\n")
         except Exception as e:
             logger.error("main_Excel_Save_Error", f"Error saving results to Excel: {e}. Please ensure 'openpyxl' is installed ('pip install openpyxl').")
         numeric_cols_for_avg = [
