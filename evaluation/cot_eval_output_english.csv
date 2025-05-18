@@ -1,0 +1,39 @@
+﻿instruction,context,ground_truth,generated_answer,nlp_bleu,nlp_meteor,nlp_rouge1,nlp_rouge2,nlp_rougeL,nlp_bert_precision,nlp_bert_recall,nlp_bert_f1
+When was the Tesla Factory in Fremont purchased by Tesla?,,In May 2010,"Step 1: Identify the Tesla factory in Fremont.  This refers to Tesla's main factory, often called the Fremont Factory or Tesla Factory.
+
+Step 2: Determine the previous owner. The Fremont factory was originally a NUMMI (New United Motor Manufacturing, Inc.) plant, a joint venture between General Motors and Toyota.
+
+Step 3: Find the date Tesla acquired the factory. Tesla purchased the factory from Toyota in 2010.
+
+Final Answer: 2010
+",0.0026,0.0893,0.0548,0.0,0.0548,0.7831,0.82,0.8011
+Who wrote Democracy in America?,,Alexis de Tocqueville wrote Democracy in America,"Step 1:  The question asks who wrote the book ""Democracy in America"".
+
+Step 2:  Recall the author of this famous work of political science.
+
+Step 3: The author of ""Democracy in America"" is Alexis de Tocqueville.
+
+Final Answer: Alexis de Tocqueville
+",0.0253,0.5847,0.2917,0.1739,0.1667,0.8258,0.8915,0.8574
+Who are the pianists that are considered masters in playing Bach's music?,,Glenn Gould is one of the most famous pianists playing Bach's music with his distinct style of articulating the contrapuntal texture of Bach's music. Zhu Xiao-mei's recording of Bach's The Goldberg Variations is acclaimed as one of the best recording of this piece. American pianist Murray Perahia has also built up a repertoire of Bach's piano music that's loved by many people.,"Step 1: Identify key periods in Bach interpretation.  Bach's music has been interpreted differently across different eras, reflecting changing stylistic understanding.
+
+Step 2: Identify pianists known for their historically informed performances. These pianists focus on using instruments and techniques that would have been available during Bach's time.
+
+Step 3: Identify pianists known for their Romantic-era interpretations.  These interpretations emphasized emotional expression and often involved embellishments not present in the original scores.
+
+Step 4: Identify pianists known for their technical mastery and profound musicality, regardless of their stylistic approach.  This category includes pianists who excel in both the intellectual and emotional aspects of Bach's music.
+
+
+Considering these steps, some pianists frequently cited as masters of Bach's music include:
+
+* **Glenn Gould:** Famous for his idiosyncratic and highly intellectual interpretations, often recorded on the piano.  His recordings are considered landmark achievements.
+* **Wilhelm Kempff:** Known for his elegant and poetic interpretations, balancing technical brilliance with emotional depth.
+* **Sviatoslav Richter:** A legendary pianist renowned for his profound musicality and expressive power across a vast repertoire, including Bach.
+* **András Schiff:**  A renowned interpreter of Bach's works, known for his historically informed approach and his deep understanding of the composer's style.
+* **Murray Perahia:**  Celebrated for his clarity, elegance, and technical command in his interpretations of Bach's keyboard works.
+
+
+There are many other pianists who have made significant contributions to the performance of Bach's music.  The above represent a selection of those frequently mentioned among the ""masters.""
+
+Final Answer: Glenn Gould, Wilhelm Kempff, Sviatoslav Richter, András Schiff, Murray Perahia are among the pianists considered masters in playing Bach's music.  Many other pianists could also be included depending on criteria used.
+",0.0081,0.3007,0.2606,0.0741,0.1416,0.8036,0.8519,0.827

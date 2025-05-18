@@ -1,0 +1,54 @@
+﻿instruction,context,ground_truth,generated_answer,nlp_bleu,nlp_meteor,nlp_rouge1,nlp_rouge2,nlp_rougeL,nlp_bert_precision,nlp_bert_recall,nlp_bert_f1
+When was the Tesla Factory in Fremont purchased by Tesla?,,In May 2010,"第一步：確定Tesla Fremont工廠的歷史。  需要查找Tesla Fremont工廠的建立和收購信息。
+
+第二步：利用搜尋引擎（例如Google, Bing, DuckDuckGo）搜尋關鍵字，例如 ""Tesla Fremont factory history,"" ""Tesla purchase Fremont factory,"" ""Tesla factory acquisition date,""  ""Nummi Tesla acquisition"" 等。
+
+第三步：分析搜尋結果，找出可靠的來源，例如Tesla官方網站、權威新聞報導、商業資訊網站等，確認Tesla收購Fremont工廠的確切日期。  需要注意的是，Tesla 並非一開始就建造了這個工廠，它是收購了之前的工廠。
+
+第四步：從可靠的來源中提取日期信息。
+
+
+經過搜尋，發現Tesla並未購買整個Fremont工廠，而是收購了前身為NUMMI (New United Motor Manufacturing, Inc.) 的工廠。 NUMMI是由通用汽車和豐田汽車合資成立的。
+
+第五步：找出Tesla收購NUMMI的日期。  多個可靠來源顯示Tesla在2010年收購了NUMMI的資產。
+
+
+最終答案： 2010年
+",0.0,0.0,0.0455,0.0,0.0455,0.6352,0.7774,0.6992
+Who wrote Democracy in America?,,Alexis de Tocqueville wrote Democracy in America,"步驟一：問題是關於一本書的作者。
+
+步驟二：書名是《民主在美國》。
+
+步驟三：我需要回憶或查找誰寫了《民主在美國》這本書。
+
+步驟四：我知道這本書是一位著名的法國學者所寫。
+
+步驟五：我回憶起作者的名字是Alexis de Tocqueville。
+
+
+最終答案： Alexis de Tocqueville
+",0.0933,0.3979,0.4615,0.3636,0.4615,0.6783,0.8359,0.7489
+Who are the pianists that are considered masters in playing Bach's music?,,Glenn Gould is one of the most famous pianists playing Bach's music with his distinct style of articulating the contrapuntal texture of Bach's music. Zhu Xiao-mei's recording of Bach's The Goldberg Variations is acclaimed as one of the best recording of this piece. American pianist Murray Perahia has also built up a repertoire of Bach's piano music that's loved by many people.,"Let's break down how to identify master pianists of Bach's music.  We need to consider several factors:
+
+1. **Technical Proficiency:**  Bach's works demand exceptional technical skill – flawless articulation, evenness of touch, precise counterpoint, and agility across a wide range.  A master pianist must demonstrate complete control of the instrument.
+
+2. **Interpretive Depth:** Bach's music is intellectually and emotionally complex. A master pianist not only plays the notes accurately but also conveys the underlying structure, harmonies, and emotional nuances, bringing the music to life.
+
+3. **Historical Awareness:**  Different periods have different approaches to performing Bach.  A master pianist will show awareness of historical performance practices (e.g., use of ornamentation, articulation styles) while still offering a personal interpretation.
+
+4. **Recorded Legacy:**  While not the sole criterion, a substantial and well-regarded discography is a strong indicator of mastery.  Many recordings allow for comparison and critical evaluation.
+
+5. **Critical Acclaim:**  Consistent praise from music critics and scholars is another important factor.
+
+Considering these factors, some pianists frequently cited as masters of Bach include:
+
+* **Glenn Gould:** Known for his idiosyncratic interpretations, emphasizing clarity and intellectual rigor.  His recordings are legendary.
+* **Wilhelm Kempff:**  Renowned for his elegant phrasing, profound understanding of Bach's contrapuntal textures, and deeply spiritual approach.
+* **Sviatoslav Richter:**  A legendary pianist known for his intense emotional engagement and powerful interpretations, even in his Bach performances.
+* **András Schiff:**  Highly respected for his intellectual depth, meticulous attention to detail, and historically informed performances.
+* **Murray Perahia:**  Celebrated for his refined touch, elegant phrasing, and clarity of articulation.
+
+There are others, of course, but these consistently appear in discussions of the greatest Bach pianists. The ""best"" is subjective, but these pianists demonstrate the qualities outlined above.
+
+最終答案：Glenn Gould, Wilhelm Kempff, Sviatoslav Richter, András Schiff, and Murray Perahia are frequently cited as master pianists of Bach's music.  Many other excellent pianists have also made significant contributions to the interpretation of Bach's works.
+",0.0069,0.2777,0.2341,0.0818,0.1272,0.7898,0.861,0.8239
