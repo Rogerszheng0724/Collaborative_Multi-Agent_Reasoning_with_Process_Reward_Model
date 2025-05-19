@@ -94,12 +94,8 @@ class GraphOfThoughts: # GraphOfThoughts in LOT is a base, primarily inherited a
 
 # --- Gemini API Interface ---
 class GeminiLLMInterface:
-<<<<<<< Updated upstream
-    def __init__(self, api_key, model_name="gemini-1.5-flash-latest", logger=None): # Added logger
-=======
     # def __init__(self, api_key, model_name="gemini-1.5-flash-latest", logger=None): # 添加 logger
     def __init__(self, api_key, model_name="gemini-2.0-flash-lite", logger=None): # 添加 logger
->>>>>>> Stashed changes
         self.model = None
         self.logger = logger if logger else DefaultLogger()
         if not api_key:
@@ -430,18 +426,11 @@ def run_lot_example_workflow_with_prm(api_key):
         return
 
     try:
-<<<<<<< Updated upstream
-        # Operational LLM (for generating criteria, option solutions, etc.)
-        llm_operator = GeminiLLMInterface(api_key=api_key, model_name="gemini-1.5-flash-latest", logger=logger_example)
-        # PRM Evaluator LLM (can be the same as operational LLM, or another, possibly stronger or fine-tuned, evaluation model)
-        # For demonstration, using the same LLM instance here
-=======
         # 操作型 LLM (用於生成標準、生成選項解決方案等)
         # llm_operator = GeminiLLMInterface(api_key=api_key, model_name="gemini-1.5-flash-latest", logger=logger_example)
         llm_operator = GeminiLLMInterface(api_key=api_key, model_name="gemini-2.0-flash-lite", logger=logger_example)
         # PRM 評估器 LLM (可以與操作型 LLM 相同，也可以是另一個更強的或專門微調的評估模型)
         # 為了演示，這裡使用相同的 LLM 實例
->>>>>>> Stashed changes
         llm_prm_evaluator = llm_operator 
         
         if not llm_operator.model: # Check if model initialized successfully

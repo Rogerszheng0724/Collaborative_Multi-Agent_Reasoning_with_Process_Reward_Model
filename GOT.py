@@ -18,12 +18,8 @@ class Thought:
         return f"Thought(id={self.id}, score={self.score:.2f}, generated_by_llm={self.generated_by_llm}, content='{display_content}...')"
 
 class GeminiLLM:
-<<<<<<< Updated upstream
-    def __init__(self, api_key, model_name="gemini-1.5-flash-latest"): # Updated model name for common usage
-=======
     # def __init__(self, api_key, model_name="gemini-1.5-flash-latest"): # 更新模型名稱以符合常見用法
     def __init__(self, api_key, model_name="gemini-2.0-flash-lite"): # 更新模型名稱以符合常見用法
->>>>>>> Stashed changes
         """
         Initializes the Gemini LLM interface.
         Args:
@@ -129,13 +125,8 @@ class GraphOfThoughts:
         prompt = f"Main task: {task_description}\n"
         prompt += "Please aggregate the following distinct thoughts into a single, more comprehensive and refined thought. Identify the core ideas and synthesize them into a coherent summary or an improved solution to better accomplish the main task:\n"
         for i, content in enumerate(thoughts_to_aggregate_content):
-<<<<<<< Updated upstream
-            prompt += f"Thought to aggregate {i+1}: {content}\n"
-        prompt += "\nCombined and aggregated thought (aimed at advancing the main task):"
-=======
             prompt += f"待聚合思維 {i+1}：{content}\n"
         prompt += "\n合併與聚合後的思維(旨在推進主要任務)，並解決問題："
->>>>>>> Stashed changes
         return prompt
 
     def _generate_prompt_for_refinement(self, thought_content, task_description, refinement_instruction):
