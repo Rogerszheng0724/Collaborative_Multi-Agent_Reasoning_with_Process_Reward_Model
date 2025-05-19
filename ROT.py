@@ -16,7 +16,12 @@ class DefaultLogger:
 
 # --- Gemini LLM Interface (ROT Version) ---
 class GeminiLLMInterface:
+<<<<<<< Updated upstream
     def __init__(self, model_name="gemini-1.5-flash-latest", api_key=None, logger=None): # Added logger
+=======
+    # def __init__(self, model_name="gemini-1.5-flash-latest", api_key=None, logger=None): # 添加 logger
+    def __init__(self, model_name="gemini-2.0-flash-lite", api_key=None, logger=None): # 添加 logger
+>>>>>>> Stashed changes
         self.model = None
         self.logger = logger if logger else DefaultLogger()
         effective_api_key = api_key or GEMINI_API_KEY_FROM_ENV
@@ -132,8 +137,13 @@ class GeminiEmbeddingInterface:
         emb1 = self._get_embedding(text1)
         emb2 = self._get_embedding(text2)
 
+<<<<<<< Updated upstream
         if emb1 is None or emb2 is None: # Handle cases where embedding failed
             self.logger.warning("ROT.GeminiEmbeddingInterface: Cannot calculate similarity because one or more embeddings are None.")
+=======
+        if emb1 is None or emb2 is None:
+            self.logger.warning("ROT","ROT.GeminiEmbeddingInterface: 無法計算相似度，因為一個或多個嵌入向量為 None。")
+>>>>>>> Stashed changes
             return 0.0
 
         try:
@@ -413,9 +423,15 @@ class ReversalOfThought:
         
         extracted_definition = "\n".join(task_def_lines).strip()
         
+<<<<<<< Updated upstream
         if not extracted_definition: # If extraction fails, return the original text or a marker
             self.logger.warning(f"Could not extract a clear task definition section from the prompt. Will use the entire prompt text for comparison. Prompt snippet: '{str(prompt_text)[:100]}...'")
             return str(prompt_text) # Fallback to full prompt text
+=======
+        if not extracted_definition: # 如果提取失敗，返回原始文本或一個標記
+            self.logger.warning('ROT',f"未能從提示中提取明確的任務定義部分。將使用整個提示文本進行比較。提示片段：'{str(prompt_text)[:100]}...'")
+            return str(prompt_text) 
+>>>>>>> Stashed changes
         return extracted_definition
 
     def cognitive_preference_manager(self, original_task_prompt_text, llm_taste_prompt_text, main_task_description_for_prm):
@@ -436,7 +452,8 @@ class ReversalOfThought:
 
         original_task_def_text = self._extract_task_definition(original_task_prompt_text)
         llm_taste_task_def_text = self._extract_task_definition(llm_taste_prompt_text)
-        
+        self.logger.info(f"original_task_def_text: {original_task_def_text} (llm_taste_task_def_text: {llm_taste_task_def_text})")
+
         similarity = self.embedder.calculate_similarity(original_task_def_text, llm_taste_task_def_text)
         self.logger.info(f"ROT: Similarity between original task definition and LLM-taste task definition: {similarity:.4f} (Threshold: {self.similarity_threshold})")
 

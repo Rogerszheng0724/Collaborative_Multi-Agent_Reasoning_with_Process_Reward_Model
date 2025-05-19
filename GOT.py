@@ -18,7 +18,12 @@ class Thought:
         return f"Thought(id={self.id}, score={self.score:.2f}, generated_by_llm={self.generated_by_llm}, content='{display_content}...')"
 
 class GeminiLLM:
+<<<<<<< Updated upstream
     def __init__(self, api_key, model_name="gemini-1.5-flash-latest"): # Updated model name for common usage
+=======
+    # def __init__(self, api_key, model_name="gemini-1.5-flash-latest"): # 更新模型名稱以符合常見用法
+    def __init__(self, api_key, model_name="gemini-2.0-flash-lite"): # 更新模型名稱以符合常見用法
+>>>>>>> Stashed changes
         """
         Initializes the Gemini LLM interface.
         Args:
@@ -124,8 +129,13 @@ class GraphOfThoughts:
         prompt = f"Main task: {task_description}\n"
         prompt += "Please aggregate the following distinct thoughts into a single, more comprehensive and refined thought. Identify the core ideas and synthesize them into a coherent summary or an improved solution to better accomplish the main task:\n"
         for i, content in enumerate(thoughts_to_aggregate_content):
+<<<<<<< Updated upstream
             prompt += f"Thought to aggregate {i+1}: {content}\n"
         prompt += "\nCombined and aggregated thought (aimed at advancing the main task):"
+=======
+            prompt += f"待聚合思維 {i+1}：{content}\n"
+        prompt += "\n合併與聚合後的思維(旨在推進主要任務)，並解決問題："
+>>>>>>> Stashed changes
         return prompt
 
     def _generate_prompt_for_refinement(self, thought_content, task_description, refinement_instruction):
@@ -225,7 +235,7 @@ class GraphOfThoughts:
         prompt = self._generate_prompt_for_new_thought(task_description, base_content_for_prompt, num_new_thoughts=num_thoughts)
         llm_response = self.llm.generate(prompt)
         parsed_contents = self._parse_llm_response_for_new_thoughts(llm_response, num_thoughts)
-
+        
         for content in parsed_contents:
             if not content or content.startswith("Error:"): # Check for empty or error content
                 self.logger.warning(f"Skipping thought generation due to error or empty content: '{content}'")
@@ -269,6 +279,26 @@ class GraphOfThoughts:
         aggregated_thought_obj.prm_justification = prm_justification
         self.logger.info(f"Aggregated thought {aggregated_thought_obj.id} evaluated - PRM Score: {prm_score:.2f}, Justification: {prm_justification}")
         
+        return aggregated_thought_obj
+    def aggregate_thoughts(self, thought_ids_to_aggregate, task_description):
+        """
+        聚合思維，並對聚合後的新思維進行 PRM 風格評分。
+        """
+        if not thought_ids_to_aggregate or not all(tid in self.thoughts for tid in thought_ids_to_aggregate):
+            self.logger.error("GOT","一個或多個用於聚合的思維 ID 未找到或列表為空。")
+            return None
+
+        contents = [self.thoughts[tid].content for tid in thought_ids_to_aggregate]
+        prompt = self._generate_prompt_for_aggregation(contents, task_description)
+        llm_response = self.llm.generate(prompt)
+
+        if not llm_response or llm_response.startswith("錯誤："):
+            self.logger.error("GOT",f"聚合失敗，原因：錯誤或空回應：'{llm_response}'")
+            return None
+        
+        aggregated_content = llm_response.strip()
+        # aggregated_thought_obj = self.add_thought(aggregated_content, parent_ids=thought_ids_to_aggregate, generated_by_llm=True)
+        aggregated_thought_obj = aggregated_content
         return aggregated_thought_obj
 
     def refine_and_evaluate_thought(self, thought_id, task_description, refinement_instruction="Improve clarity and detail, making it closer to the main task objective."):
