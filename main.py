@@ -61,8 +61,8 @@ class TerminalLogger:
     def warning(self, stage, message):
         print(f"[WARNING][{stage}] {message}")
 
-    def info(self, message): 
-         if self.verbose: 
+    def info(self, message):
+         if self.verbose:
             print(f"[INFO] {message}")
 
 # --- LLM Call Retry Logic ---
@@ -91,7 +91,7 @@ def call_llm_with_retry(llm_generate_function, prompt, logger, llm_name="LLM", m
 
                 suggested_delay_match = re.search(r"retry_delay.*?seconds:\s*(\d+)", error_str)
                 if suggested_delay_match:
-                    wait_time = int(suggested_delay_match.group(1)) + random.uniform(1, 5) 
+                    wait_time = int(suggested_delay_match.group(1)) + random.uniform(1, 5)
                 else:
                     wait_time = current_delay + random.uniform(0, current_delay * 0.2)
 
@@ -181,16 +181,82 @@ class DummyGraphOfThoughts:
         else:
             self.logger = TerminalLogger(verbose=False)
         self.logger.info("DummyGraphOfThoughts initialized.")
-    def generate_and_evaluate_thoughts(self, task_description, num_thoughts):
+    def generate_and_evaluate_thoughts(self, task_description, num_thoughts, from_thought_ids=None): # Added from_thought_ids for compatibility
         self.logger.info(f"Dummy GOT: Generating {num_thoughts} thoughts for '{task_description[:20]}...'")
         class DummyThought:
-            def __init__(self, content, score=0.0, prm_justification="Dummy justification"):
+            def __init__(self, content, score=0.0, prm_justification="Dummy justification", id="dummy_id", parents=None): # Added id and parents
                 self.content = content
                 self.score = score
                 self.prm_justification = prm_justification
-        return [DummyThought(f"GOT dummy thought for {task_description[:20]}")] * num_thoughts
+                self.id = id
+                self.parents = parents if parents is not None else []
+
+        # Simulate generating thoughts, if from_thought_ids is provided, link them as parents
+        generated_thoughts = []
+        for i in range(num_thoughts):
+            parent_objects = []
+            if from_thought_ids: # This is a simplification; real GOT would use these IDs to fetch parent objects
+                parent_objects = [DummyThought(f"Parent thought for {tid}", id=tid) for tid in from_thought_ids]
+
+            generated_thoughts.append(
+                DummyThought(
+                    f"GOT dummy thought {i+1} for {task_description[:20]}",
+                    score=random.uniform(0.1, 0.9),
+                    prm_justification=f"Dummy PRM justification for thought {i+1}",
+                    id=f"dummy_thought_{random.randint(1000,9999)}",
+                    parents=parent_objects
+                )
+            )
+        return generated_thoughts
+
+    def refine_and_evaluate_thought(self, thought_id, task_description, refinement_instruction):
+        self.logger.info(f"Dummy GOT: Refining thought ID '{thought_id}' for task '{task_description[:20]}...'")
+        # In a real system, you'd fetch the thought by ID
+        # For the dummy, we'll just create a new "refined" thought
+        class DummyThought: # Re-define for local scope or ensure it's accessible
+            def __init__(self, content, score=0.0, prm_justification="Dummy justification", id="dummy_id", parents=None):
+                self.content = content
+                self.score = score
+                self.prm_justification = prm_justification
+                self.id = id
+                self.parents = parents if parents is not None else []
+
+        # Simulate a parent thought
+        parent_thought = DummyThought(f"Original thought content for ID {thought_id}", id=thought_id)
+
+        return DummyThought(
+            f"Refined GOT dummy thought for {task_description[:20]} (original ID: {thought_id})",
+            score=random.uniform(0.5, 0.95), # Usually higher after refinement
+            prm_justification=f"Dummy PRM justification for refined thought (original ID: {thought_id})",
+            id=f"refined_dummy_thought_{random.randint(1000,9999)}",
+            parents=[parent_thought]
+        )
+
+    def aggregate_thoughts(self, thought_ids_to_aggregate, task_description):
+        self.logger.info(f"Dummy GOT: Aggregating thoughts {thought_ids_to_aggregate} for task '{task_description[:20]}...'")
+        # In a real system, you'd fetch content of thoughts by IDs
+        # For the dummy, just create a new "aggregated" thought string (not a Thought object as per dummy system's usual return for this)
+        return f"Aggregated GOT dummy thought from IDs {thought_ids_to_aggregate} for task '{task_description[:20]}...'"
+
+
     def print_graph(self): self.logger.info("Dummy GOT: Printing graph (empty).")
-    def rank_thoughts(self): return []
+    def rank_thoughts(self):
+        # Simulate some thoughts to rank if none exist or to make it more realistic
+        class DummyThought: # Ensure class is defined
+            def __init__(self, content, score=0.0, prm_justification="Dummy justification", id="dummy_id", parents=None):
+                self.content = content
+                self.score = score
+                self.prm_justification = prm_justification
+                self.id = id
+                self.parents = parents if parents is not None else []
+
+        dummy_ranked_thoughts = [
+            DummyThought(f"Ranked dummy thought 1", score=0.9, prm_justification="High quality", id="rank1"),
+            DummyThought(f"Ranked dummy thought 2", score=0.7, prm_justification="Good quality", id="rank2"),
+        ]
+        self.logger.info("Dummy GOT: Returning dummy ranked thoughts.")
+        return dummy_ranked_thoughts
+
 
 class DummyLayerOfThoughts:
     def __init__(self, llm_interface, logger=None, prm_evaluator_llm=None):
@@ -280,7 +346,7 @@ if not GEMINI_API_KEY:
     print("[WARNING] GEMINI_API_KEY not found in environment variables.")
     if IMPORTS_SUCCESSFUL:
         print("[WARNING] LLM calls may fail if API key for real modules is not set.")
-    GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE" 
+    GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"
 
 if GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE" and IMPORTS_SUCCESSFUL:
     print("[WARNING] Using placeholder API key. Real LLM calls may fail.")
@@ -328,7 +394,7 @@ class MASOrchestrator:
     def __init__(self, api_key, logger):
         self.api_key = api_key
         self.logger = logger
-        
+
         self.got_llm = None
         self.got_system = None
         self.lot_llm = None
@@ -405,48 +471,65 @@ class MASOrchestrator:
             self.iterative_optimizer_llm = BaseDummyLLM(api_key=self.api_key, model_name="optimizer_llm_exc_fallback", logger=self.logger)
 
 
-    def conduct_mas_debate(self, mission_context, got_idea, lot_plan, max_rounds=3):
+    def conduct_mas_debate(self, mission_context,rot_idea, got_idea, lot_idea, max_rounds=4):
         self.logger.section_start(f"MAS Style Debate (Targeting {max_rounds} Rounds)")
-        proactive_delay_between_turns = 5 
+        proactive_delay_between_turns = 15 # Delay specific to debate turns
 
         debate_transcript = []
         discussion_context_summary = f"Mission Context:\n{mission_context}\n"
+        discussion_context_summary += f"Initial Core Idea from ROT:\n{rot_idea}\n"
         discussion_context_summary += f"Initial Core Idea from GOT:\n{got_idea}\n"
-        discussion_context_summary += f"Initial Detailed Plan from LOT:\n{lot_plan}\n"
+        discussion_context_summary += f"Initial Detailed Plan from LOT:\n{lot_idea}\n"
         discussion_context_summary += "The debate will now commence.\n"
 
         if not self.debate_llm or isinstance(self.debate_llm, BaseDummyLLM) or not hasattr(self.debate_llm, 'generate'):
             self.logger.warning("MAS_DEBATE", "Debate LLM not effectively initialized. Using simulated debate.")
             debate_transcript.append({"speaker": "Moderator", "utterance": "Simulated debate starting."})
-            
+
+            rot_sim_statement = "Simulated ROT statement."
             got_sim_statement = "Simulated GOT statement."
             lot_sim_statement = "Simulated LOT statement."
             critic_sim_statement = "Simulated Critic statement."
-            
+
+            if hasattr(self.rot_system, 'llm') and isinstance(self.rot_system.llm, BaseDummyLLM):
+                 rot_sim_statement = self.rot_system.llm.generate("ROT opening statement prompt")
             if hasattr(self.got_system, 'llm') and isinstance(self.got_system.llm, BaseDummyLLM):
                  got_sim_statement = self.got_system.llm.generate("GOT opening statement prompt")
             if hasattr(self.lot_system, 'llm') and isinstance(self.lot_system.llm, BaseDummyLLM):
                  lot_sim_statement = self.lot_system.llm.generate("LOT opening statement prompt")
-            
+
             temp_critic_llm = self.debate_llm if (self.debate_llm and hasattr(self.debate_llm, 'generate') and not isinstance(self.debate_llm, BaseDummyLLM)) else BaseDummyLLM(logger=self.logger)
             critic_sim_statement = temp_critic_llm.generate("Critic statement prompt")
 
+            debate_transcript.append({"speaker": "ROT_Representative", "utterance": rot_sim_statement})
             debate_transcript.append({"speaker": "GOT_Representative", "utterance": got_sim_statement})
             debate_transcript.append({"speaker": "LOT_Representative", "utterance": lot_sim_statement})
             debate_transcript.append({"speaker": "Critical_Analyst", "utterance": critic_sim_statement})
             self.logger.section_end(f"MAS Style Debate (Simulated)")
             return debate_transcript
 
+        rot_agent = DebateAgent("ROT_Representative", self.debate_llm, self.logger)
         got_agent = DebateAgent("GOT_Representative", self.debate_llm, self.logger)
         lot_agent = DebateAgent("LOT_Representative", self.debate_llm, self.logger)
         critic_agent = DebateAgent("Critical_Analyst", self.debate_llm, self.logger)
 
-        opening_statement = f"Debate Topic: In-depth discussion based on the following mission context, GOT idea, and LOT plan.\n{discussion_context_summary}"
+        opening_statement = f"Debate Topic: In-depth discussion based on the following mission context, ROT idea, GOT idea, and LOT idea.\n{discussion_context_summary}"
         debate_transcript.append({"speaker": "Moderator", "utterance": opening_statement})
 
         current_round = 0
+        rot_statement = "ROT idea placeholder (if not generated)."
         got_statement = "GOT idea placeholder (if not generated)."
-        lot_statement = "LOT plan placeholder (if not generated)."
+        lot_statement = "LOT idea placeholder (if not generated)."
+
+        if current_round < max_rounds:
+            current_round += 1
+            self.logger.info(f"Debate Round {current_round}: ROT Representative")
+            prompt_rot = f"As the ROT Representative, elaborate on your core idea: '{str(rot_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
+            rot_statement = rot_agent.speak(prompt_rot, discussion_context_summary)
+            debate_transcript.append({"speaker": rot_agent.name, "utterance": rot_statement})
+            discussion_context_summary += f"\nRound {current_round} - {rot_agent.name}:\n{rot_statement}\n"
+            self.logger.info(f"Debate: Proactively sleeping for {proactive_delay_between_turns}s after ROT Rep.")
+            time.sleep(proactive_delay_between_turns)
 
         if current_round < max_rounds:
             current_round += 1
@@ -458,11 +541,10 @@ class MASOrchestrator:
             self.logger.info(f"Debate: Proactively sleeping for {proactive_delay_between_turns}s after GOT Rep.")
             time.sleep(proactive_delay_between_turns)
 
-
         if current_round < max_rounds:
             current_round += 1
             self.logger.info(f"Debate Round {current_round}: LOT Representative")
-            prompt_lot = f"As the LOT Representative, detail your plan: '{str(lot_plan)[:150]}...'. Explain how it implements GOT's idea ('{str(got_statement)[:100]}...') and addresses potential challenges in implementing the mission '{str(mission_context)[:100]}...'."
+            prompt_lot = f"As the LOT Representative, elaborate on your core idea: '{str(lot_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
             lot_statement = lot_agent.speak(prompt_lot, discussion_context_summary)
             debate_transcript.append({"speaker": lot_agent.name, "utterance": lot_statement})
             discussion_context_summary += f"\nRound {current_round} - {lot_agent.name}:\n{lot_statement}\n"
@@ -472,7 +554,7 @@ class MASOrchestrator:
         if current_round < max_rounds:
             current_round += 1
             self.logger.info(f"Debate Round {current_round}: Critical Analyst")
-            prompt_critic = f"As the Critical Analyst, critically evaluate GOT's idea ('{str(got_statement)[:100]}...') and LOT's plan ('{str(lot_statement)[:100]}...'). Identify potential weaknesses, overlooked aspects, or inconsistencies regarding the mission '{str(mission_context)[:100]}...'. Suggest improvements."
+            prompt_critic = f"As the Critical Analyst, critically evaluate ROT's idea ('{str(rot_statement)[:100]}...') , GOT's idea ('{str(got_statement)[:100]}...'), and LOT's idea ('{str(lot_statement)[:100]}...'). Identify potential weaknesses, overlooked aspects, or inconsistencies regarding the mission '{str(mission_context)[:100]}...'. Evaluate the correctness of the response in relation to the mission context. Suggest improvements."
             critic_statement = critic_agent.speak(prompt_critic, discussion_context_summary)
             debate_transcript.append({"speaker": critic_agent.name, "utterance": critic_statement})
             discussion_context_summary += f"\nRound {current_round} - {critic_agent.name}:\n{critic_statement}\n"
@@ -535,11 +617,12 @@ class MASOrchestrator:
         return prm_score, prm_justification, "ImplicitPRM_LLMEvaluator"
 
     def run_collaborative_task(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=2, num_prm_iterations=3):
-        proactive_delay_between_stages = 5 
+        proactive_delay_between_stages = 5 # Delay used within this method's stages
         self.logger.section_start(f"Collaborative Task (with {num_prm_iterations} PRM Iterations)")
         self.logger.info(f"Initial task description: {initial_task_description[:100]}...")
 
         refined_task_prompt_for_core_logic = initial_task_description
+        rot_solution = f"Default ROT solution, task: {initial_task_description[:50]}..."
 
         if hasattr(self.rot_system, 'cognitive_preference_manager') and not isinstance(self.rot_system, DummyReversalOfThought):
             self.logger.info("--- ROT Phase ---")
@@ -556,69 +639,174 @@ class MASOrchestrator:
                         main_task_description_for_prm=initial_task_description
                     )
                     if cpm_output and "dummy" not in str(cpm_output).lower() and "error" not in str(cpm_output).lower():
-                         refined_task_prompt_for_core_logic = cpm_output
+                        refined_task_prompt_for_core_logic = cpm_output
+                        instance_for_solve = problem_instance_for_rot_final_solve if problem_instance_for_rot_final_solve else initial_task_description
+                        rot_solution_candidate = self.rot_system.solve_task_with_final_prompt(
+                            str(refined_task_prompt_for_core_logic),
+                            instance_for_solve
+                        )
+                        if rot_solution_candidate and "dummy" not in str(rot_solution_candidate).lower() and "error" not in str(rot_solution_candidate).lower():
+                            rot_solution = rot_solution_candidate
+                        else:
+                            self.logger.warning("MASOrchestrator", "ROT solve_task_with_final_prompt returned dummy or error. Using default ROT solution.")
                     else:
-                         self.logger.warning("MASOrchestrator", "ROT CPM returned dummy or error, using PGRR output or initial task description.")
-                         if pgrr_output and "dummy" not in str(pgrr_output).lower() and "error" not in str(pgrr_output).lower():
-                            refined_task_prompt_for_core_logic = pgrr_output
-                self.logger.info(f"ROT Phase output (refined task prompt, partial): {refined_task_prompt_for_core_logic[:100]}...")
+                         self.logger.warning("MASOrchestrator", "ROT CPM returned dummy or error, using PGRR output or initial task description for core logic, and default ROT solution.")
+                else:
+                    self.logger.warning("MASOrchestrator", "ROT PGRR returned dummy or error. Using initial task description for core logic, and default ROT solution.")
+
+
+                self.logger.info(f"ROT Phase refined task prompt: {refined_task_prompt_for_core_logic[:100]}...")
+                self.logger.info(f"ROT Phase output : {str(rot_solution)[:100]}...")
                 self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after ROT phase.")
                 time.sleep(proactive_delay_between_stages)
             except Exception as e_rot:
-                self.logger.warning("MASOrchestrator", f"ROT phase execution error: {e_rot}. Using original task description for core logic.")
+                self.logger.warning("MASOrchestrator", f"ROT phase execution error: {e_rot}. Using original task description for core logic and default ROT solution.")
+                traceback.print_exc()
+
 
         self.logger.info("--- GOT Phase ---")
-        got_best_idea_content = f"Default GOT core idea, task: {refined_task_prompt_for_core_logic[:50]}..."
+        aggregated_thought = f"Default GOT aggregated idea, task: {initial_task_description[:50]}..."
         try:
-            initial_thoughts = self.got_system.generate_and_evaluate_thoughts(
-                task_description=refined_task_prompt_for_core_logic,
-                num_thoughts=1
+            initial_ideas = self.got_system.generate_and_evaluate_thoughts(
+                task_description=initial_task_description,
+                num_thoughts=2
             )
-            if initial_thoughts and hasattr(initial_thoughts[0], 'content') and initial_thoughts[0].content:
-                got_best_idea_content = initial_thoughts[0].content
+
+            if initial_ideas and all(hasattr(idea, 'id') and hasattr(idea, 'content') and hasattr(idea, 'score') and hasattr(idea, 'prm_justification') for idea in initial_ideas):
+                for idea in initial_ideas:
+                    self.logger.info(f"初始概念 ID {idea.id}: '{idea.content[:50]}...' (PRM Score: {idea.score:.2f}, Justification: {idea.prm_justification})")
+
+                initial_ideas.sort(key=lambda t: t.score, reverse=True)
+                best_initial_idea = initial_ideas[0]
+                self.logger.info(f"\n步驟 2：選擇 PRM 分數最高的初始概念 (ID: {best_initial_idea.id}) 進行詳細闡述")
+
+                elaborated_thoughts = self.got_system.generate_and_evaluate_thoughts(
+                    task_description=f"詳細闡述以下概念 '{best_initial_idea.content[:50]}...'，使其更具體可行。基於任務: " + initial_task_description,
+                    num_thoughts=1,
+                    from_thought_ids=[best_initial_idea.id]
+                )
+
+                elaborated_idea = None
+                if elaborated_thoughts and hasattr(elaborated_thoughts[0], 'id'):
+                    elaborated_idea = elaborated_thoughts[0]
+                    self.logger.info(f"闡述後的概念 ID {elaborated_idea.id}: '{elaborated_idea.content[:50]}...' (PRM Score: {elaborated_idea.score:.2f}, Justification: {elaborated_idea.prm_justification})")
+
+                    self.logger.info(f"\n步驟 3：精煉已闡述概念 (ID: {elaborated_idea.id})")
+                    refined_thought_obj = self.got_system.refine_and_evaluate_thought(
+                        elaborated_idea.id,
+                        task_description="精煉概念，使其更具吸引力和成本效益。基於任務: " + initial_task_description,
+                        refinement_instruction="增加一個獨特的、低成本但高感知價值的獎勵元素，並考慮如何追踪會員進度。"
+                    )
+                    if refined_thought_obj and hasattr(refined_thought_obj, 'id'):
+                        self.logger.info(f"精煉後的概念 ID {refined_thought_obj.id}: '{refined_thought_obj.content[:50]}...' (PRM Score: {refined_thought_obj.score:.2f}, Justification: {refined_thought_obj.prm_justification})")
+
+                        thoughts_for_aggregation_ids = []
+                        if best_initial_idea and hasattr(best_initial_idea, 'id') and \
+                           refined_thought_obj and hasattr(refined_thought_obj, 'parents') and refined_thought_obj.parents and hasattr(refined_thought_obj.parents[0], 'id') and \
+                           best_initial_idea.id != refined_thought_obj.parents[0].id :
+                            thoughts_for_aggregation_ids.append(best_initial_idea.id)
+                            thoughts_for_aggregation_ids.append(refined_thought_obj.id)
+                        elif refined_thought_obj and hasattr(refined_thought_obj, 'id'):
+                            thoughts_for_aggregation_ids.append(refined_thought_obj.id)
+                            if len(initial_ideas) > 1 and hasattr(initial_ideas[1], 'id') and \
+                               (not (hasattr(refined_thought_obj, 'parents') and refined_thought_obj.parents and hasattr(refined_thought_obj.parents[0], 'id')) or \
+                                initial_ideas[1].id != refined_thought_obj.parents[0].id):
+                                thoughts_for_aggregation_ids.append(initial_ideas[1].id)
+
+                        if thoughts_for_aggregation_ids:
+                            self.logger.info(f"\n步驟 4：聚合思維 {thoughts_for_aggregation_ids}")
+                            aggregated_thought_candidate = self.got_system.aggregate_thoughts(
+                                thoughts_for_aggregation_ids,
+                                task_description="將以下概念的方面組合成一個統一且強大的最終方案。基於任務: " + initial_task_description
+                            )
+                            if aggregated_thought_candidate and "dummy" not in str(aggregated_thought_candidate).lower():
+                                aggregated_thought = str(aggregated_thought_candidate)
+                                self.logger.info(f"聚合後的概念 : '{aggregated_thought[:80]}...' ")
+                            else:
+                                self.logger.info("聚合步驟未產生有效結果或返回dummy，使用最後的精煉想法 (如果存在) 或闡述想法。")
+                                if refined_thought_obj and hasattr(refined_thought_obj, 'content'):
+                                    aggregated_thought = refined_thought_obj.content
+                                elif elaborated_idea and hasattr(elaborated_idea, 'content'):
+                                     aggregated_thought = elaborated_idea.content
+                        else:
+                            self.logger.info("沒有足夠的不同高品質思維進行聚合。使用最後的精煉想法 (如果存在) 或闡述想法。")
+                            if refined_thought_obj and hasattr(refined_thought_obj, 'content'):
+                                aggregated_thought = refined_thought_obj.content
+                            elif elaborated_idea and hasattr(elaborated_idea, 'content'):
+                                 aggregated_thought = elaborated_idea.content
+                    else:
+                        self.logger.warning("精煉步驟未產生有效結果。使用已闡述的概念 (如果存在)。")
+                        if elaborated_idea and hasattr(elaborated_idea, 'content'):
+                            aggregated_thought = elaborated_idea.content
+                else:
+                    self.logger.warning("闡述步驟未產生有效結果。使用最佳初始概念 (如果存在)。")
+                    if best_initial_idea and hasattr(best_initial_idea, 'content'):
+                        aggregated_thought = best_initial_idea.content
             else:
-                self.logger.warning("MASOrchestrator", "GOT generate_and_evaluate_thoughts returned empty or invalid thoughts.")
+                self.logger.warning("GOT: 沒有初始概念可供選擇或概念無效。跳過後續GOT內部處理。")
+
+            self.logger.info("\n--- 最終所有思維的排序 (基於 PRM 風格評分) ---")
+            top_thoughts = self.got_system.rank_thoughts()
+            if top_thoughts and all(hasattr(t, 'id') and hasattr(t, 'score') and hasattr(t, 'content') and hasattr(t, 'prm_justification') for t in top_thoughts):
+                for i, thought_instance in enumerate(top_thoughts):
+                    display_content = thought_instance.content[:80].replace('\n', ' ').strip()
+                    self.logger.info(f"{i+1}. (ID: {thought_instance.id}, PRM Score: {thought_instance.score:.2f}) - {display_content}...")
+                    self.logger.info(f"    Justification: {thought_instance.prm_justification}")
+                if top_thoughts and hasattr(top_thoughts[0], 'score') and top_thoughts[0].score > 0 and hasattr(top_thoughts[0], 'content'):
+                    if aggregated_thought.startswith("Default GOT aggregated idea") or not aggregated_thought.strip():
+                        aggregated_thought = top_thoughts[0].content
+                        self.logger.info(f"Updated aggregated_thought based on top ranked thought to: {aggregated_thought[:80]}...")
+            else:
+                self.logger.warning("GOT: rank_thoughts did not return valid thoughts for ranking display.")
+
+            self.logger.info("\n--- GOT (PRM 風格評分) 範例用法結束 ---")
         except Exception as e_got:
             self.logger.warning("MASOrchestrator", f"GOT phase execution error: {e_got}. Using default GOT idea.")
-        
+            traceback.print_exc()
+
         self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after GOT phase.")
         time.sleep(proactive_delay_between_stages)
 
         self.logger.info("--- LOT Phase ---")
-        lot_detailed_plan_str = f"Default LOT detailed plan, GOT idea: {got_best_idea_content[:50]}..."
+        lot_detailed_plan_str = f"Default LOT detailed plan, task: {initial_task_description[:50]}..."
         try:
             plan_output = self.lot_system.run_pipeline(
-                conceptual_steps=["Analyze GOT idea with task", "Formulate detailed steps", "Construct final plan"],
-                main_task_description=refined_task_prompt_for_core_logic,
-                initial_input=got_best_idea_content
+                conceptual_steps=["Analyze task description", "Formulate detailed steps", "Construct final plan","Generate and present the answer"],
+                main_task_description=initial_task_description,
+                initial_input=aggregated_thought
             )
-            if plan_output:
+            if plan_output and "dummy" not in str(plan_output).lower():
                 lot_detailed_plan_str = str(plan_output)
+            else:
+                self.logger.warning("LOT: run_pipeline returned None, empty, or dummy. Using default LOT plan.")
         except Exception as e_lot:
             self.logger.warning("MASOrchestrator", f"LOT phase execution error: {e_lot}. Using default LOT plan.")
-        
+            traceback.print_exc()
+
         self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after LOT phase.")
         time.sleep(proactive_delay_between_stages)
 
         self.logger.info("--- MAS Debate Phase ---")
         mas_debate_transcript = self.conduct_mas_debate(
-            mission_context=refined_task_prompt_for_core_logic,
-            got_idea=got_best_idea_content,
-            lot_plan=lot_detailed_plan_str,
+            mission_context=initial_task_description,
+            rot_idea=str(rot_solution),
+            got_idea=str(aggregated_thought),
+            lot_idea=str(lot_detailed_plan_str),
             max_rounds=num_debate_rounds
         )
         debate_summary_for_synthesis = "Debate Record Summary:\n"
         for entry in mas_debate_transcript:
             debate_summary_for_synthesis += f"{entry['speaker']}: {str(entry['utterance'])[:100]}...\n"
-        
+
         self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after MAS Debate phase.")
         time.sleep(proactive_delay_between_stages)
 
         original_thoughtflow_summary_pre_prm = (
             f"Initial Task: {initial_task_description[:100]}...\n"
             f"Refined Task (if by ROT, partial): {refined_task_prompt_for_core_logic[:100]}...\n"
-            f"GOT Idea (partial): {got_best_idea_content[:100]}...\n"
-            f"LOT Plan (partial): {lot_detailed_plan_str[:100]}...\n"
+            f"ROT Solution (partial): {str(rot_solution)[:100]}...\n"
+            f"GOT Idea (partial): {str(aggregated_thought)[:100]}...\n"
+            f"LOT Plan (partial): {str(lot_detailed_plan_str)[:100]}...\n"
             f"{debate_summary_for_synthesis}\n"
             "--- End of Pre-PRM Thoughtflow Components ---"
         )
@@ -626,21 +814,26 @@ class MASOrchestrator:
 
 
         self.logger.info("--- Initial Synthesis Phase ---")
-        current_reasoning_artifact = f"Initial synthesis result, task: {refined_task_prompt_for_core_logic[:50]}..."
+        current_reasoning_artifact = f"Initial synthesis result, task: {initial_task_description[:50]}..."
         if not self.synthesis_llm or isinstance(self.synthesis_llm, BaseDummyLLM) or not hasattr(self.synthesis_llm, 'generate'):
             self.logger.warning("MASOrchestrator", "Synthesis LLM not effectively initialized. Using placeholder for initial synthesis.")
         else:
             synthesis_prompt = f"""
-            Based on the following task context, outputs from different reasoning modules (GOT, LOT), and a debate, generate a comprehensive initial answer or reasoning process.
-            Task Context (possibly refined by ROT):
-            {refined_task_prompt_for_core_logic}
+            Based on the following task context, outputs from different reasoning modules (ROT, GOT, LOT), and a debate, generate a comprehensive initial answer or reasoning process.
+            Task Context :
+            {initial_task_description}
+            ROT Core Idea/Solution:
+            {str(rot_solution)}
             GOT Core Idea:
-            {got_best_idea_content}
+            {str(aggregated_thought)}
             LOT Detailed Plan:
-            {lot_detailed_plan_str}
+            {str(lot_detailed_plan_str)}
             Debate Summary:
             {debate_summary_for_synthesis}
             Synthesize these elements into a coherent and comprehensive initial answer/reasoning process for the task:
+            **Important:**
+            Don’t mention where each piece of information came from (e.g., ROT, GOT, or LOT).
+            Just use the provided details to form a clear, complete answer to the task.
             """
             try:
                 synthesis_output = call_llm_with_retry(
@@ -655,7 +848,8 @@ class MASOrchestrator:
                     self.logger.warning("MASOrchestrator", f"Initial synthesis LLM did not produce valid output or produced error/dummy response. Using placeholder. Output: {synthesis_output}")
             except Exception as e_synth:
                 self.logger.error("MASOrchestrator", f"Critical error during initial synthesis LLM call (after retries): {e_synth}")
-        
+                traceback.print_exc()
+
         self.logger.answer("INITIAL_SYNTHESIS", current_reasoning_artifact, is_final=False, detail_level=1)
         self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after Initial Synthesis.")
         time.sleep(proactive_delay_between_stages)
@@ -677,7 +871,7 @@ class MASOrchestrator:
                 "iteration": i + 1,
                 "score": prm_score,
                 "justification": prm_justification,
-                "artifact_content_before_opt": str(current_reasoning_artifact)[:200] + "..."
+                "artifact_content_before_opt": str(current_reasoning_artifact) # MODIFIED: Store full content
             })
 
             if prm_score > best_prm_score_overall:
@@ -688,29 +882,37 @@ class MASOrchestrator:
             if prm_score >= 0.95 and i < num_prm_iterations - 1:
                 self.logger.info(f"PRM Iteration {i+1}: Score {prm_score:.3f} reached early termination threshold. Stopping PRM iterations.")
                 break
-            
+
             self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s before PRM optimization call (Iter {i+1}).")
             time.sleep(proactive_delay_between_stages)
 
             if i < num_prm_iterations - 1:
                 optimization_llm_prompt = f"""
-                Original Task:
+                Original Task (possibly refined by ROT):
                 {refined_task_prompt_for_core_logic}
+
+                Context from previous steps (ROT/GOT/LOT/Debate) that led to the current reasoning/answer - for your reference only, do not repeat in output:
+                ROT Solution: {str(rot_solution)}
+                GOT Idea: {str(aggregated_thought)}
+                LOT Plan: {str(lot_detailed_plan_str)}
+                Debate Summary: {debate_summary_for_synthesis}
+
                 Current Reasoning/Answer (Version {i+1}):
                 \"\"\"
                 {current_reasoning_artifact}
                 \"\"\"
-                Process Reward Model (PRM) Evaluation & Improvement Suggestions:
+                Process Reward Model (PRM) Evaluation & Improvement Suggestions for the above "Current Reasoning/Answer":
                 PRM Score: {prm_score:.2f}
                 PRM Improvement Suggestions: {prm_justification}
+
                 Strictly following the PRM's improvement suggestions, revise and enhance the "Current Reasoning/Answer" to create an improved version (Version {i+2}).
-                Ensure the new version addresses the issues pointed out by the PRM and aims for improvement in correctness, completeness, logicality, and clarity.
+                Ensure the new version addresses the issues pointed out by the PRM and aims for improvement in correctness, completeness, logicality, and clarity, while staying true to the original task and helpful context.
                 Improved Reasoning/Answer (Version {i+2}):
                 """
                 self.logger.info(f"PRM Iteration {i+1}: Generating optimized version based on PRM feedback...")
                 if not self.iterative_optimizer_llm or isinstance(self.iterative_optimizer_llm, BaseDummyLLM) or not hasattr(self.iterative_optimizer_llm, 'generate'):
                     self.logger.warning("MASOrchestrator", "Iterative optimizer LLM not effectively initialized. Using placeholder as optimized artifact.")
-                    current_reasoning_artifact = f"Placeholder optimized artifact (Version {i+2}) (after PRM feedback)"
+                    current_reasoning_artifact = f"Placeholder optimized artifact (Version {i+2}) (after PRM feedback for Version {i+1})"
                 else:
                     try:
                         optimized_output = call_llm_with_retry(
@@ -725,22 +927,23 @@ class MASOrchestrator:
                             self.logger.warning("MASOrchestrator", f"Optimizer LLM did not produce valid output or produced error/dummy response. Retaining previous version. Output: {optimized_output}")
                     except Exception as e_opt:
                         self.logger.error("MASOrchestrator", f"Critical error during optimization LLM call (after retries): {e_opt}. Retaining previous version.")
+                        traceback.print_exc()
                 self.logger.answer(f"OPTIMIZED_ARTIFACT_ITER_{i+2}", current_reasoning_artifact, is_final=False, detail_level=1)
                 self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after PRM optimization call (Iter {i+1}).")
                 time.sleep(proactive_delay_between_stages)
             else:
-                self.logger.info(f"PRM Iteration {i+1}: Final PRM evaluation. No further optimization in this loop.")
+                self.logger.info(f"PRM Iteration {i+1}: Final PRM evaluation in this loop. No further optimization step within this loop.")
         self.logger.section_end(f"Implicit PRM Iterative Optimization")
 
         final_synthesized_plan = best_artifact_from_prm_iterations
-        self.logger.info(f"MASOrchestrator: After PRM iterations, selected artifact PRM score: {best_prm_score_overall:.3f}")
+        self.logger.info(f"MASOrchestrator: After PRM iterations, selected artifact (from iteration with best score {best_prm_score_overall:.3f}) as final plan.")
 
         thoughtflow_summary_incl_prm = f"{original_thoughtflow_summary_pre_prm}\n--- PRM Iteration History ---\n"
         for entry in prm_iteration_details:
             thoughtflow_summary_incl_prm += (
                 f"Iteration {entry['iteration']}: Score={entry['score']:.2f}, "
                 f"Justification (start): {str(entry['justification'])[:80]}..., "
-                f"Artifact before opt (start): {str(entry['artifact_content_before_opt'])[:50]}...\n"
+                f"Artifact evaluated (start): {str(entry['artifact_content_before_opt'])[:50]}...\n"
             )
         thoughtflow_summary_incl_prm += "--- PRM Iteration History End ---"
 
@@ -749,8 +952,8 @@ class MASOrchestrator:
 
         return {
             "synthesized_final_plan": final_synthesized_plan,
-            "original_thoughtflow_summary_pre_prm": original_thoughtflow_summary_pre_prm, 
-            "thoughtflow_summary_incl_prm": thoughtflow_summary_incl_prm, 
+            "original_thoughtflow_summary_pre_prm": original_thoughtflow_summary_pre_prm,
+            "thoughtflow_summary_incl_prm": thoughtflow_summary_incl_prm,
             "prm_iteration_history_details": prm_iteration_details
         }
 
@@ -764,15 +967,15 @@ def evaluate_with_llm(task_description, thoughtflow_summary, generated_answer, g
 
     if not llm_interface or not hasattr(llm_interface, 'generate'):
         logger.warning("evaluate_with_llm", "Evaluation LLM not effectively initialized. Returning placeholder values.")
-        R_score_val = 0.1 
-        similarity_score = 0.5 
+        R_score_val = 0.1
+        similarity_score = 0.5
         if similarity_score >= SIMILARITY_THRESHOLD_FOR_LABEL_L: label_l = 1
         return R_score_val, receval_assessment_text, label_l, similarity_score
 
     if isinstance(llm_interface, BaseDummyLLM):
         logger.warning("evaluate_with_llm", "Evaluation LLM is BaseDummyLLM. Returning dummy placeholder values.")
-        R_score_val = 0.1 
-        similarity_score = 0.5 
+        R_score_val = 0.1
+        similarity_score = 0.5
         if similarity_score >= SIMILARITY_THRESHOLD_FOR_LABEL_L: label_l = 1
         return R_score_val, receval_assessment_text, label_l, similarity_score
 
@@ -807,15 +1010,17 @@ Output only the numerical R-score:"""
     except Exception as e:
         logger.error("evaluate_with_llm", f"Error parsing R-score from LLM (after retries): {e}. Output: '{r_score_output_str if r_score_output_str else 'N/A'}'")
         R_score_val = 0.0
+        traceback.print_exc()
+
 
     receval_assessment_text_output = None
     try:
         logger.info("Requesting RECEVAL assessment from LLM...")
         receval_prompt = f"""Task: Evaluate the following thoughtflow based on RECEVAL criteria.
 Original Question: {task_description}
-Thoughtflow Summary (e.g., debate, PRM iterations):
+Thoughtflow Summary (e.g., debate, PRM iterations) - first 5000 chars:
 \"\"\"
-{thoughtflow_summary} 
+{thoughtflow_summary[:5000]}
 \"\"\"
 Final Answer generated from this thoughtflow:
 \"\"\"
@@ -840,6 +1045,7 @@ Provide a qualitative assessment of the thoughtflow:"""
     except Exception as e:
         logger.error("evaluate_with_llm", f"Error getting RECEVAL assessment from LLM (after retries): {e}")
         receval_assessment_text = f"RECEVAL assessment error (after retries): {e}"
+        traceback.print_exc()
 
     similarity_output_str = None
     try:
@@ -879,6 +1085,7 @@ Output only the numerical similarity score:"""
         logger.error("evaluate_with_llm", f"Error parsing similarity score from LLM (after retries): {e}. Output: '{similarity_output_str if similarity_output_str else 'N/A'}'")
         similarity_score = 0.0
         label_l = 0
+        traceback.print_exc()
 
     return R_score_val, receval_assessment_text, label_l, similarity_score
 
@@ -889,15 +1096,15 @@ def calculate_cross_entropy(R_score, label_l, logger):
         return None
     try:
         R_score_float = float(R_score)
-        if R_score_float > 700: 
+        if R_score_float > 700:
             log_sigma_R = 0.0
             log_one_minus_sigma_R = -R_score_float
-        elif R_score_float < -700: 
+        elif R_score_float < -700:
             log_sigma_R = R_score_float
             log_one_minus_sigma_R = 0.0
         else:
             sigma_R = 1 / (1 + math.exp(-R_score_float))
-            epsilon = 1e-9 
+            epsilon = 1e-9
             sigma_R_clipped = max(epsilon, min(sigma_R, 1 - epsilon))
             log_sigma_R = math.log(sigma_R_clipped)
             log_one_minus_sigma_R = math.log(1 - sigma_R_clipped)
@@ -910,6 +1117,7 @@ def calculate_cross_entropy(R_score, label_l, logger):
         return None
     except Exception as e:
         logger.error("calculate_cross_entropy", f"Error calculating cross-entropy: {e}")
+        traceback.print_exc()
         return None
 
 def calculate_nlp_metrics(generated_answer, ground_truth_answer, logger):
@@ -927,11 +1135,12 @@ def calculate_nlp_metrics(generated_answer, ground_truth_answer, logger):
     try:
         ref_tokens = [word_tokenize(str_ground_truth_answer.lower())] if str_ground_truth_answer.strip() else [[]]
         gen_tokens = word_tokenize(str_generated_answer.lower()) if str_generated_answer.strip() else []
-    except LookupError as le: # Specifically for punkt not found
+    except LookupError as le:
         logger.error("calculate_nlp_metrics", f"Tokenization failed due to NLTK resource 'punkt' not found: {le}. NLP metrics will be 0.")
         return metrics
     except Exception as e:
         logger.error("calculate_nlp_metrics", f"Tokenization failed: {e}. NLP metrics will be 0.")
+        traceback.print_exc()
         return metrics
 
     if not gen_tokens and not ref_tokens[0]:
@@ -947,6 +1156,7 @@ def calculate_nlp_metrics(generated_answer, ground_truth_answer, logger):
             metrics["rougeL"] = rouge_scores_dict['rougeL'].fmeasure
         except Exception as e_rouge_empty:
             logger.error("calculate_nlp_metrics", f"Error calculating ROUGE for empty generated answer: {e_rouge_empty}")
+            traceback.print_exc()
         return metrics
 
     try:
@@ -957,6 +1167,8 @@ def calculate_nlp_metrics(generated_answer, ground_truth_answer, logger):
         metrics["bleu"] = 0.0
     except Exception as e:
         logger.error("calculate_nlp_metrics", f"Error calculating BLEU: {e}")
+        traceback.print_exc()
+
 
     try:
         scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
@@ -967,20 +1179,30 @@ def calculate_nlp_metrics(generated_answer, ground_truth_answer, logger):
         metrics["rougeL"] = rouge_scores_dict['rougeL'].fmeasure
     except Exception as e:
         logger.error("calculate_nlp_metrics", f"Error calculating ROUGE: {e}")
+        traceback.print_exc()
 
     try:
-        metrics["meteor"] = meteor_score(ref_tokens, gen_tokens)
-    except LookupError as le: # Specifically for wordnet/omw-1.4 not found
+        if ref_tokens and gen_tokens and ref_tokens[0]: # meteor_score expects non-empty list of lists for references
+             metrics["meteor"] = meteor_score(ref_tokens, gen_tokens)
+        else:
+            metrics["meteor"] = 0.0
+            if not (ref_tokens and ref_tokens[0]):
+                logger.warning("calculate_nlp_metrics", "Skipping METEOR due to empty reference tokens.")
+            if not gen_tokens:
+                logger.warning("calculate_nlp_metrics", "Skipping METEOR due to empty generated tokens.")
+
+    except LookupError as le:
         logger.error("calculate_nlp_metrics", f"Error calculating METEOR due to NLTK resource (e.g., 'wordnet') not found: {le}. METEOR set to 0.0.")
         metrics["meteor"] = 0.0
-    except Exception as e: 
+    except Exception as e:
         logger.error("calculate_nlp_metrics", f"Error calculating METEOR: {e}")
         metrics["meteor"] = 0.0
+        traceback.print_exc()
 
 
     try:
-        global torch 
-        if torch: 
+        global torch
+        if torch:
             P, R, F1 = bert_score_calc(
                 [str_generated_answer if str_generated_answer.strip() else " "],
                 [str_ground_truth_answer if str_ground_truth_answer.strip() else " "],
@@ -999,6 +1221,7 @@ def calculate_nlp_metrics(generated_answer, ground_truth_answer, logger):
         metrics["bert_precision"] = 0.0
         metrics["bert_recall"] = 0.0
         metrics["bert_f1"] = 0.0
+        traceback.print_exc()
     return metrics
 
 # --- Main Processing Logic ---
@@ -1006,20 +1229,24 @@ def main():
     logger = TerminalLogger(verbose=True)
     logger.section_start("Main Evaluation Flow")
 
-    global IMPORTS_SUCCESSFUL, GEMINI_API_KEY, torch 
+    # --- MODIFIED: Define delay for use in main loop ---
+    main_loop_item_delay_seconds = 2 # Delay between processing each CSV item
+
+    global IMPORTS_SUCCESSFUL, GEMINI_API_KEY, torch
+    logger.info(f"GEMINI_API_KEY from env: {GEMINI_API_KEY[:10]}..." if GEMINI_API_KEY else "Not Found")
 
     try:
-        import torch as pytorch_module 
-        torch = pytorch_module 
+        import torch as pytorch_module
+        torch = pytorch_module
         logger.info("PyTorch successfully imported. BERTScore should work.")
     except ImportError:
         logger.warning("main", "Failed to import PyTorch (torch). BERTScore calculation will be skipped or fail. Please install PyTorch.")
-        torch = None 
+        torch = None
 
     if not IMPORTS_SUCCESSFUL:
         logger.warning("main", "One or more core modules (GOT, LOT, ROT) failed to import. Functionality will rely on dummy classes.")
     if not GEMINI_API_KEY or GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
-        logger.warning("main", f"GEMINI_API_KEY is invalid ('{str(GEMINI_API_KEY)[:10]}...'). LLM calls will use dummy classes or fail if real modules are loaded.")
+        logger.warning("main", f"GEMINI_API_KEY is invalid or placeholder ('{str(GEMINI_API_KEY)[:10]}...'). LLM calls will use dummy classes or fail if real modules are loaded.")
 
     orchestrator = MASOrchestrator(api_key=GEMINI_API_KEY, logger=logger)
     evaluation_llm_interface = orchestrator.synthesis_llm
@@ -1029,25 +1256,33 @@ def main():
     elif isinstance(evaluation_llm_interface, BaseDummyLLM):
          logger.warning("main", "Evaluation LLM (from orchestrator.synthesis_llm) is BaseDummyLLM. Evaluation results will be placeholders.")
 
-    csv_file_path = "dolly_gsm8k.csv" 
-    logger.info(f"Attempting to load CSV data from: {csv_file_path}")
+    csv_file_path = r"D:\datascience\Paper\dolly_gsm8k.csv"
+    logger.info(f"Attempting to load CSV data from: {os.path.abspath(csv_file_path)}")
+
 
     if not os.path.exists(csv_file_path):
         logger.error("main", f"CSV file not found: {csv_file_path}")
+        dataset_dir = os.path.dirname(csv_file_path)
+        if dataset_dir and not os.path.exists(dataset_dir): # Ensure dataset_dir is not empty string
+            try:
+                os.makedirs(dataset_dir)
+                logger.info(f"Created dataset directory: {dataset_dir}")
+            except Exception as e_dir:
+                logger.error("main", f"Failed to create dataset directory {dataset_dir}: {e_dir}")
         try:
-            logger.info(f"Attempting to create a sample {csv_file_path} file at: {os.path.abspath(csv_file_path)}")
-            sample_df = pd.DataFrame(columns=['instruction', 'context', 'response'])
-            sample_df.loc[0] = ["What is the capital of France?", "France is a country in Europe.", "The capital of France is Paris."]
-            sample_df.loc[1] = ["Explain the theory of relativity.", "", "The theory of relativity, developed by Albert Einstein, fundamentally changed our understanding of space, time, gravity, and the universe. It consists of two main parts: Special Relativity and General Relativity..."]
-            sample_df.to_csv(csv_file_path, index=False, encoding='utf-8') 
+            logger.info(f"Attempting to create a sample {csv_file_path} file...")
+            sample_df = pd.DataFrame(columns=['instruction', 'context', 'response', 'rot_demonstration_input', 'rot_demonstration_output'])
+            sample_df.loc[0] = ["What is the capital of France?", "France is a country in Europe.", "The capital of France is Paris.", "Old capital question", "Old capital answer"]
+            sample_df.loc[1] = ["Explain the theory of relativity.", "", "The theory of relativity...", "Old relativity question", "Old relativity answer"]
+            sample_df.to_csv(csv_file_path, index=False, encoding='utf-8')
             logger.info(f"Sample {csv_file_path} created with UTF-8 encoding. Please populate it with your data and rerun.")
         except Exception as e_create:
             logger.error("main", f"Failed to create sample {csv_file_path}: {e_create}")
+            traceback.print_exc()
         logger.section_end("Main Evaluation Flow")
         return
 
     try:
-        # Attempt to read with UTF-8 first
         try:
             dataset_df = pd.read_csv(csv_file_path, encoding='utf-8')
             logger.info(f"Successfully loaded {len(dataset_df)} records from '{csv_file_path}' using UTF-8 encoding.")
@@ -1055,8 +1290,8 @@ def main():
             logger.warning("main", f"Failed to load '{csv_file_path}' with UTF-8 encoding. Attempting with 'latin1' encoding...")
             dataset_df = pd.read_csv(csv_file_path, encoding='latin1')
             logger.info(f"Successfully loaded {len(dataset_df)} records from '{csv_file_path}' using latin1 encoding.")
-        
-        required_columns = ['instruction', 'response'] 
+
+        required_columns = ['instruction', 'response']
         missing_cols = [col for col in required_columns if col not in dataset_df.columns]
         if missing_cols:
             logger.error("main", f"CSV file must contain the following columns: {', '.join(required_columns)}. Missing: {', '.join(missing_cols)}")
@@ -1064,20 +1299,25 @@ def main():
             return
         if "context" not in dataset_df.columns:
             logger.warning("main", "CSV file does not contain 'context' column. Context will be considered empty for all rows.")
-            dataset_df["context"] = "" 
-            
-        if "rot_demonstration_input" not in dataset_df.columns or "rot_demonstration_output" not in dataset_df.columns:
-            logger.info("CSV file does not contain 'rot_demonstration_input' or 'rot_demonstration_output' columns. ROT demonstrations will use defaults if not provided otherwise.")
+            dataset_df["context"] = ""
+        if "rot_demonstration_input" not in dataset_df.columns:
+            logger.info("CSV file does not contain 'rot_demonstration_input' column. ROT demonstrations will use defaults.")
+            dataset_df["rot_demonstration_input"] = ""
+        if "rot_demonstration_output" not in dataset_df.columns:
+            logger.info("CSV file does not contain 'rot_demonstration_output' column. ROT demonstrations will use defaults.")
+            dataset_df["rot_demonstration_output"] = ""
+
 
     except Exception as e:
         logger.error("main", f"Error loading CSV file: {e}")
+        traceback.print_exc()
         logger.section_end("Main Evaluation Flow")
         return
 
     all_results = []
     num_processed = 0
     default_max_items = len(dataset_df)
-    
+
     max_items_to_process_str = input(f"Dataset has {default_max_items} items. How many to process? (Enter number, or press Enter for all [{default_max_items}]): ")
     try:
         max_items_to_process = int(max_items_to_process_str) if max_items_to_process_str.strip() else default_max_items
@@ -1087,7 +1327,7 @@ def main():
     except ValueError:
         logger.warning("main", f"Invalid input for number of items to process. Defaulting to all {default_max_items} items.")
         max_items_to_process = default_max_items
-    
+
     logger.info(f"Will process a maximum of {max_items_to_process} items.")
 
 
@@ -1112,97 +1352,125 @@ def main():
         logger.info(f"Ground Truth Answer (Response): {ground_truth_answer[:150]}...")
 
         rot_demonstrations_for_this_item = None
-        if "rot_demonstration_input" in dataset_df.columns and "rot_demonstration_output" in dataset_df.columns and \
-           "rot_demonstration_input" in row and "rot_demonstration_output" in row and \
-           pd.notna(row["rot_demonstration_input"]) and pd.notna(row["rot_demonstration_output"]):
+        if "rot_demonstration_input" in row and pd.notna(row["rot_demonstration_input"]) and str(row["rot_demonstration_input"]).strip() and \
+           "rot_demonstration_output" in row and pd.notna(row["rot_demonstration_output"]) and str(row["rot_demonstration_output"]).strip():
             rot_demonstrations_for_this_item = [(str(row["rot_demonstration_input"]), str(row["rot_demonstration_output"]))]
             logger.info(f"Using ROT demonstration from CSV: Input='{str(row['rot_demonstration_input'])[:50]}...', Output='{str(row['rot_demonstration_output'])[:50]}...'")
         else:
-            logger.info("Not using ROT demonstration from CSV (columns missing or data empty).")
+            logger.info("Not using ROT demonstration from CSV (columns missing, data empty, or not applicable). Using default ROT demonstrations if any.")
 
 
         orchestrator_outputs = orchestrator.run_collaborative_task(
-            initial_task_description=question, 
+            initial_task_description=question,
             rot_demonstrations=rot_demonstrations_for_this_item,
             num_debate_rounds=2,
-            num_prm_iterations=3
+            num_prm_iterations=4  # MODIFIED: Set to 4 for 4 PRM evaluation points
         )
         generated_answer = orchestrator_outputs.get("synthesized_final_plan", "Failed to generate answer.")
         original_thoughtflow_summary = orchestrator_outputs.get("original_thoughtflow_summary_pre_prm", "Failed to generate original thoughtflow summary.")
         thoughtflow_summary_incl_prm = orchestrator_outputs.get("thoughtflow_summary_incl_prm", "Failed to generate thoughtflow summary with PRM.")
+        prm_iteration_history = orchestrator_outputs.get("prm_iteration_history_details", [])
 
 
-        logger.info(f"Generated Answer (post-PRM iteration, partial): {str(generated_answer)[:150]}...")
-        logger.info(f"Original Thoughtflow Summary (pre-PRM, partial): {str(original_thoughtflow_summary)[:250]}...")
-        logger.info(f"Thoughtflow Summary (incl. PRM iterations, partial): {str(thoughtflow_summary_incl_prm)[:250]}...")
+        logger.info(f"Final Generated Answer (post-PRM iteration, partial): {str(generated_answer)[:150]}...")
 
         R_score, receval_assessment, label_l, llm_similarity_score = evaluate_with_llm(
             task_description=question,
-            thoughtflow_summary=thoughtflow_summary_incl_prm, 
+            thoughtflow_summary=thoughtflow_summary_incl_prm,
             generated_answer=generated_answer,
             ground_truth_answer=ground_truth_answer,
             llm_interface=evaluation_llm_interface,
             logger=logger,
             beta_prm=BETA_PRM
         )
-        logger.info(f"LLM Evaluation - R-score: {R_score}, Label l: {label_l}, Similarity: {llm_similarity_score}, RECEVAL (length): {len(str(receval_assessment))}")
+        logger.info(f"LLM Evaluation for Final Answer - R-score: {R_score}, Label l: {label_l}, Similarity: {llm_similarity_score}, RECEVAL (length): {len(str(receval_assessment))}")
 
         ce_loss = calculate_cross_entropy(R_score, label_l, logger)
-        logger.info(f"Cross-Entropy Loss: {ce_loss}")
+        logger.info(f"Cross-Entropy Loss for Final Answer: {ce_loss}")
 
         nlp_metrics = calculate_nlp_metrics(generated_answer, ground_truth_answer, logger)
-        logger.info(f"NLP Metrics: {nlp_metrics}")
+        logger.info(f"NLP Metrics for Final Answer: {nlp_metrics}")
 
-        current_result = {
+        common_data_for_csv_item = {
             "csv_index": index,
-            "input_instruction": instruction, 
-            "input_context": context,       
-            "combined_input_question": question, 
+            "input_instruction": instruction,
+            "input_context": context,
+            "combined_input_question": question,
             "ground_truth_answer": ground_truth_answer,
-            "generated_answer_final": generated_answer,
-            "R_score_final_answer": R_score,
-            "label_l_final_answer": label_l,
-            "llm_similarity_final_answer": llm_similarity_score,
-            "cross_entropy_loss_final_answer": ce_loss,
-            "original_thoughtflow_summary_pre_prm": original_thoughtflow_summary, 
-            "thoughtflow_summary_incl_prm": thoughtflow_summary_incl_prm,
-            "receval_assessment_thoughtflow_incl_prm": receval_assessment, 
-            **{f"nlp_{k}": v for k, v in nlp_metrics.items()}
+            "final_generated_answer_overall": generated_answer,
+            "R_score_overall_final_answer": R_score,
+            "label_l_overall_final_answer": label_l,
+            "llm_similarity_overall_final_answer": llm_similarity_score,
+            "cross_entropy_loss_overall_final_answer": ce_loss,
+            "receval_assessment_overall_thoughtflow": receval_assessment,
+            # "original_thoughtflow_summary_pre_prm": original_thoughtflow_summary, # Optional
+            # "full_thoughtflow_summary_incl_prm": thoughtflow_summary_incl_prm, # Optional
+            **{f"nlp_{k}_overall_final_answer": v for k, v in nlp_metrics.items()}
         }
-        all_results.append(current_result)
+
+        if not prm_iteration_history:
+            logger.warning(f"No PRM iteration history found for CSV index {index} despite requesting {4} iterations. Adding a placeholder row.")
+            placeholder_row = {**common_data_for_csv_item}
+            placeholder_row["prm_iteration_round_number"] = 0
+            placeholder_row["evaluated_thoughtflow_content_this_round"] = "N/A - No PRM history"
+            placeholder_row["prm_score_this_round"] = "N/A"
+            placeholder_row["prm_justification_this_round"] = "N/A"
+            all_results.append(placeholder_row)
+        else:
+            for prm_detail in prm_iteration_history:
+                prm_row_data = {**common_data_for_csv_item}
+
+                prm_row_data["prm_iteration_round_number"] = prm_detail.get("iteration", "Error")
+                prm_row_data["evaluated_thoughtflow_content_this_round"] = prm_detail.get("artifact_content_before_opt", "Error") # Full content
+                prm_row_data["prm_score_this_round"] = prm_detail.get("score", "Error")
+                prm_row_data["prm_justification_this_round"] = prm_detail.get("justification", "Error")
+
+                all_results.append(prm_row_data)
+
         logger.section_end(f"Finished Item {num_processed}/{max_items_to_process}")
+        if num_processed < max_items_to_process:
+            logger.info(f"Delaying for {main_loop_item_delay_seconds}s before next CSV item...")
+            time.sleep(main_loop_item_delay_seconds) # MODIFIED: Use defined delay
 
     logger.section_start("Overall Results Summary")
     if not all_results:
-        logger.info("No items were processed.")
+        logger.info("No items were processed or no results generated.")
     else:
         results_df = pd.DataFrame(all_results)
-        output_excel_filename = "evaluation_results_dolly_gsm8k.xlsx" 
+        output_excel_dir = "results"
+        if not os.path.exists(output_excel_dir):
+            os.makedirs(output_excel_dir)
+        output_excel_filename = os.path.join(output_excel_dir, f"evaluation_results_prm_iterations_{time.strftime('%Y%m%d_%H%M%S')}.xlsx")
+
         try:
             results_df.to_excel(output_excel_filename, index=False, engine='openpyxl')
-            logger.info(f"Detailed evaluation results saved to: {output_excel_filename}")
+            logger.info(f"Detailed evaluation results saved to: {os.path.abspath(output_excel_filename)}")
         except Exception as e:
             logger.error("main", f"Error saving results to Excel: {e}. Please ensure 'openpyxl' is installed.")
+            traceback.print_exc()
 
         numeric_cols_for_avg = [
-            "R_score_final_answer", "label_l_final_answer", "llm_similarity_final_answer",
-            "cross_entropy_loss_final_answer", "nlp_bleu", "nlp_rouge1", "nlp_rouge2",
-            "nlp_rougeL", "nlp_meteor", "nlp_bert_precision", "nlp_bert_recall", "nlp_bert_f1"
+            "R_score_overall_final_answer", "label_l_overall_final_answer", "llm_similarity_overall_final_answer",
+            "cross_entropy_loss_overall_final_answer",
+            "nlp_bleu_overall_final_answer", "nlp_rouge1_overall_final_answer", "nlp_rouge2_overall_final_answer",
+            "nlp_rougeL_overall_final_answer", "nlp_meteor_overall_final_answer",
+            "nlp_bert_precision_overall_final_answer", "nlp_bert_recall_overall_final_answer", "nlp_bert_f1_overall_final_answer",
+            "prm_score_this_round"
         ]
         avg_scores_summary = {}
-        logger.info("Average scores for processed items:")
+        logger.info("Average scores for processed items (Note: 'overall' metrics are repeated per PRM iteration row):")
         for col_name in numeric_cols_for_avg:
             if col_name in results_df.columns:
                 valid_numeric_series = pd.to_numeric(results_df[col_name], errors='coerce').dropna()
                 if not valid_numeric_series.empty:
                     avg_scores_summary[f"avg_{col_name}"] = valid_numeric_series.mean()
                 else:
-                    avg_scores_summary[f"avg_{col_name}"] = "N/A (no valid data)"
+                    avg_scores_summary[f"avg_{col_name}"] = "N/A (no valid numeric data)"
             else:
-                avg_scores_summary[f"avg_{col_name}"] = "N/A (column not found)"
-            
+                avg_scores_summary[f"avg_{col_name}"] = f"N/A (column '{col_name}' not found)"
+
             avg_value_to_print = avg_scores_summary.get(f"avg_{col_name}")
-            if isinstance(avg_value_to_print, float):
+            if isinstance(avg_value_to_print, (float, np.floating)):
                  logger.info(f"  {avg_value_to_print:.4f} : {col_name}")
             else:
                  logger.info(f"  {str(avg_value_to_print)} : {col_name}")
