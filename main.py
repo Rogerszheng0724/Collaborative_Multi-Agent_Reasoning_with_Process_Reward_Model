@@ -781,7 +781,7 @@ class MASOrchestrator:
                 "iteration": current_prm_iteration + 1,
                 "score": prm_score,
                 "justification": prm_justification,
-                "artifact_content_before_opt": str(current_reasoning_artifact)[:200] + "..."
+                "artifact_content_before_opt": str(current_reasoning_artifact) + "..."
             })
 
             if prm_score > best_prm_score_overall:
@@ -809,7 +809,6 @@ class MASOrchestrator:
                 PRM Improvement Suggestions: {prm_justification}
                 Strictly following the PRM's improvement suggestions, revise and enhance the "Current Reasoning/Answer" to create an improved version (Version {current_prm_iteration+2}).
                 Ensure the new version addresses the issues pointed out by the PRM and aims for improvement in correctness, completeness, logicality, and clarity.
-                Improved Reasoning/Answer (Version {current_prm_iteration+2}):
                 """
                 self.logger.info(f"PRM Iteration {current_prm_iteration+1}: Generating optimized version based on PRM feedback...")
                 # if not self.iterative_optimizer_llm or isinstance(self.iterative_optimizer_llm, BaseDummyLLM) or not hasattr(self.iterative_optimizer_llm, 'generate'):
@@ -852,8 +851,8 @@ class MASOrchestrator:
         for entry in prm_iteration_details:
             thoughtflow_summary_incl_prm += (
                 f"Iteration {entry['iteration']}: Score={entry['score']:.2f}, "
-                f"Justification (start): {str(entry['justification'])[:80]}..., "
-                f"Artifact before opt (start): {str(entry['artifact_content_before_opt'])[:50]}...\n"
+                f"Justification (start): {str(entry['justification'])}..., "
+                f"Artifact before opt (start): {str(entry['artifact_content_before_opt'])}...\n"
             )
         thoughtflow_summary_incl_prm += "--- PRM Iteration History End ---"
 
