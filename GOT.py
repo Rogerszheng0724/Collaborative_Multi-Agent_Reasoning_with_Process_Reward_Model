@@ -91,24 +91,88 @@ class GraphOfThoughts:
             def warning(self, message): print(f"[GOT WARNING] {message}")
             def error(self, message): print(f"[GOT ERROR] {message}")
         return PrintLogger()
+    def _default_logger(self):
+        class L:
+            def info(s, m): print(f"[GOT INFO] {m}")
+            def warning(s, m): print(f"[GOT WARN] {m}")
+            def error(s, m): print(f"[GOT ERR] {m}")
+        return L()
 
+    def _new_id(self):
+        i = self.next_id
+        self.next_id += 1
+        return i
+
+    def add_thought(self, content, parent_ids=None):
+        tid = self._new_id()
+        t = Thought(content, tid)
+        self.thoughts[tid] = t
+        if parent_ids:
+            for pid in parent_ids:
+                if pid in self.thoughts:
+                    self.thoughts[pid].children.append(t)
+                    t.parents.append(self.thoughts[pid])
+        self.logger.info(f"Added {t}")
+        return t
+
+    def _prompt_new(self, task, existing=None, n=1):
+        p = f"Task: {task}\n"
+        if existing:
+            for i,c in enumerate(existing): p += f"Prev{i+1}: {c}\n"
+        p += f"Generate {n} new thought(s) to advance the task."
+        return p
+    def print_graph(self):
+        self.logger.info("Current Graph:")
+        for tid, t in sorted(self.thoughts.items()):
+            cnt = t.content[:60].replace('\n',' ')
+            pids = [p.id for p in t.parents]
+            cids = [c.id for c in t.children]
+            self.logger.info(f"ID {tid}: {cnt} | parents={pids} children={cids}")
     def _get_new_id(self):
         new_id = self.next_thought_id
         self.next_thought_id += 1
         return new_id
 
-    def add_thought(self, content, parent_ids=None, score=0.0, generated_by_llm=True, prm_justification="Not yet evaluated"):
-        new_id = self._get_new_id()
-        thought = Thought(content, new_id, score, generated_by_llm, prm_justification)
-        self.thoughts[new_id] = thought
-        if parent_ids:
-            for pid in parent_ids:
-                if pid in self.thoughts:
-                    self.thoughts[pid].children.append(thought)
-                    thought.parents.append(self.thoughts[pid])
-        self.logger.info(f"Added thought: {thought}")
-        return thought
+    # def add_thought(self, content, parent_ids=None, score=0.0, generated_by_llm=True, prm_justification="Not yet evaluated"):
+    #     new_id = self._get_new_id()
+    #     thought = Thought(content, new_id, score, generated_by_llm, prm_justification)
+    #     self.thoughts[new_id] = thought
+    #     if parent_ids:
+    #         for pid in parent_ids:
+    #             if pid in self.thoughts:
+    #                 self.thoughts[pid].children.append(thought)
+    #                 thought.parents.append(self.thoughts[pid])
+    #     self.logger.info(f"Added thought: {thought}")
+    #     return thought
+    def generate_thoughts(self, task_description, num=1, from_ids=None):
+        base = [self.thoughts[i].content for i in (from_ids or []) if i in self.thoughts]
+        prompt = self._prompt_new(task_description, base, num)
+        resp = self.llm.generate(prompt)
+        parts = re.split(r'\n\s*(?=\d+\.)', resp) if num>1 else [resp]
+        thoughts = []
+        for txt in parts[:num]:
+            clean = re.sub(r'^\s*(\d+\.)','',txt).strip()
+            if clean:
+                thoughts.append(self.add_thought(clean, parent_ids=from_ids))
+        return thoughts
 
+    def refine_thought(self, thought_id, task_description, instruction):
+        if thought_id not in self.thoughts:
+            self.logger.error(f"Refine: id {thought_id} missing")
+            return None
+        orig = self.thoughts[thought_id].content
+        prompt = f"Task: {task_description}\nOriginal: {orig}\nInstruction: {instruction}\nRefine the thought." 
+        resp = self.llm.generate(prompt)
+        return self.add_thought(resp, parent_ids=[thought_id])
+
+    def aggregate_thoughts(self, ids, task_description):
+        if not ids or any(i not in self.thoughts for i in ids):
+            self.logger.error("Aggregate: invalid ids")
+            return None
+        contents = [self.thoughts[i].content for i in ids]
+        prompt = f"Task: {task_description}\nCombine:\n" + "\n".join(contents)
+        resp = self.llm.generate(prompt)
+        return self.add_thought(resp, parent_ids=ids)
     # --- Prompter Module ---
     def _generate_prompt_for_new_thought(self, task_description, existing_thoughts_content=None, num_new_thoughts=1):
         prompt = f"Main task: {task_description}\n"
@@ -126,7 +190,7 @@ class GraphOfThoughts:
         prompt += "Please aggregate the following distinct thoughts into a single, more comprehensive and refined thought. Identify the core ideas and synthesize them into a coherent summary or an improved solution to better accomplish the main task:\n"
         for i, content in enumerate(thoughts_to_aggregate_content):
             prompt += f"待聚合思維 {i+1}：{content}\n"
-        prompt += "\n合併與聚合後的思維(旨在推進主要任務)，並解決問題："
+        prompt += "\n合併與聚合後的思維(旨在推進主要任務)，並解決問題和給出答案："
         return prompt
 
     def _generate_prompt_for_refinement(self, thought_content, task_description, refinement_instruction):
@@ -271,7 +335,7 @@ class GraphOfThoughts:
         self.logger.info(f"Aggregated thought {aggregated_thought_obj.id} evaluated - PRM Score: {prm_score:.2f}, Justification: {prm_justification}")
         
         return aggregated_thought_obj
-    def aggregate_thoughts(self, thought_ids_to_aggregate, task_description):
+    # def aggregate_thoughts(self, thought_ids_to_aggregate, task_description):
         """
         聚合思維，並對聚合後的新思維進行 PRM 風格評分。
         """

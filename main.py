@@ -302,7 +302,8 @@ class DebateAgent:
             self.logger.error("MAS_DEBATE_AGENT", error_msg)
             return f"Error: {error_msg}"
 
-        full_prompt = f"You are {self.name}, an expert.\nCurrent discussion context: {context_summary}\nYour specific task: {prompt}\nPlease provide your response. Ensure it is clear, structured, and directly addresses the task."
+        # full_prompt = f"You are {self.name}, an expert.\nCurrent discussion context: {context_summary}\nYour specific task: {prompt}\nPlease provide your response. Ensure it is clear, correct, structured, and directly addresses the task."
+        full_prompt = f"You are {self.name}, an expert.\nYour specific task: {prompt}\nPlease provide your response. Ensure it is clear, correct, structured, and directly addresses the task."
         self.logger.thoughtflow("MAS_DEBATE", f"Agent {self.name} is thinking...\nPrompt focus: {prompt[:100]}...")
 
         try:
@@ -322,6 +323,7 @@ class DebateAgent:
         response_str = str(response) if response is not None else f"{self.name} failed to generate a response."
         self.logger.discussion("MAS_DEBATE_TURN", self.name, response_str)
         return response_str
+
 
 # --- MAS Orchestrator ---
 class MASOrchestrator:
@@ -405,9 +407,10 @@ class MASOrchestrator:
             self.iterative_optimizer_llm = BaseDummyLLM(api_key=self.api_key, model_name="optimizer_llm_exc_fallback", logger=self.logger)
 
 
-    def conduct_mas_debate(self, mission_context,rot_idea, got_idea, lot_idea, max_rounds=4):
+    def conduct_mas_debate(self, mission_context,rot_idea, got_idea, lot_idea, max_rounds):
         self.logger.section_start(f"MAS Style Debate (Targeting {max_rounds} Rounds)")
-        proactive_delay_between_turns = 15
+        proactive_delay_between_turns = 5
+
 
         debate_transcript = []
         discussion_context_summary = f"Mission Context:\n{mission_context}\n"
@@ -458,7 +461,13 @@ class MASOrchestrator:
         if current_round < max_rounds:
             current_round += 1
             self.logger.info(f"Debate Round {current_round}: ROT Representative")
-            prompt_rot = f"As the ROT Representative, elaborate on your core idea: '{str(rot_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
+            # prompt_rot = f"As the ROT Representative, elaborate on your core idea: '{str(rot_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
+            prompt_rot = f"""
+                As the ROT Representative, elaborate on your core idea: '{str(rot_idea)}', considering the mission: '{str(mission_context)}'. 
+                Explain how your idea addresses the core problem and highlight its key strengths. 
+                Then, critically evaluate the GOT idea: '{str(got_idea)}' and the LOT idea: '{str(lot_idea)}'. 
+                Discuss their potential weaknesses, overlooked aspects, or limitations compared to your own idea, and explain why your approach is preferable.
+                """
             rot_statement = rot_agent.speak(prompt_rot, discussion_context_summary)
             debate_transcript.append({"speaker": rot_agent.name, "utterance": rot_statement})
             discussion_context_summary += f"\nRound {current_round} - {rot_agent.name}:\n{rot_statement}\n"
@@ -468,7 +477,13 @@ class MASOrchestrator:
         if current_round < max_rounds:
             current_round += 1
             self.logger.info(f"Debate Round {current_round}: GOT Representative")
-            prompt_got = f"As the GOT Representative, elaborate on your core idea: '{str(got_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
+            # prompt_got = f"As the GOT Representative, elaborate on your core idea: '{str(got_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
+            prompt_got = f"""
+                As the GOT Representative, elaborate on your core idea: '{str(got_idea)}', considering the mission: '{str(mission_context)}'. 
+                Explain how your idea addresses the core problem and highlight its key strengths. 
+                Then, critically evaluate the ROT idea: '{str(rot_idea)}' and the LOT idea: '{str(lot_idea)}'. 
+                Discuss their potential weaknesses, overlooked aspects, or limitations compared to your own idea, and explain why your approach is preferable.
+                """
             got_statement = got_agent.speak(prompt_got, discussion_context_summary)
             debate_transcript.append({"speaker": got_agent.name, "utterance": got_statement})
             discussion_context_summary += f"\nRound {current_round} - {got_agent.name}:\n{got_statement}\n"
@@ -478,7 +493,13 @@ class MASOrchestrator:
         if current_round < max_rounds:
             current_round += 1
             self.logger.info(f"Debate Round {current_round}: LOT Representative")
-            prompt_lot = f"As the LOT Representative, elaborate on your core idea: '{str(lot_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
+            # prompt_lot = f"As the LOT Representative, elaborate on your core idea: '{str(lot_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
+            prompt_lot = f"""
+                As the LOT Representative, elaborate on your core idea: '{str(lot_idea)}', considering the mission: '{str(mission_context)}'. 
+                Explain how your idea addresses the core problem and highlight its key strengths. 
+                Then, critically evaluate the GOT idea: '{str(got_idea)}' and the ROT idea: '{str(rot_idea)}'. 
+                Discuss their potential weaknesses, overlooked aspects, or limitations compared to your own idea, and explain why your approach is preferable.
+                """
             # prompt_lot = f"As the LOT Representative, elaborate on your core idea:: '{str(lot_idea)[:150]}...'. Explain how it implements GOT's idea ('{str(got_statement)[:100]}...') and addresses potential challenges in implementing the mission '{str(mission_context)[:100]}...'."
             lot_statement = lot_agent.speak(prompt_lot, discussion_context_summary)
             debate_transcript.append({"speaker": lot_agent.name, "utterance": lot_statement})
@@ -489,7 +510,8 @@ class MASOrchestrator:
         if current_round < max_rounds:
             current_round += 1
             self.logger.info(f"Debate Round {current_round}: Critical Analyst")
-            prompt_critic = f"As the Critical Analyst, critically evaluate ROT's idea ('{str(rot_statement)[:100]}...') , GOT's idea ('{str(got_statement)[:100]}...'), and LOT's idea ('{str(lot_statement)[:100]}...'). Identify potential weaknesses, overlooked aspects, or inconsistencies regarding the mission '{str(mission_context)[:100]}...'. Evaluate the correctness of the response in relation to the mission context. Suggest improvements."
+            # prompt_critic = f"As the Critical Analyst, critically evaluate ROT's idea ('{str(rot_statement)[:100]}...') , GOT's idea ('{str(got_statement)[:100]}...'), and LOT's idea ('{str(lot_statement)[:100]}...'). Identify potential weaknesses, overlooked aspects, or inconsistencies regarding the mission '{str(mission_context)[:100]}...'. Evaluate the correctness of the response in relation to the mission context. Suggest improvements."
+            prompt_critic = f"As the Critical Analyst, critically evaluate ROT's idea ('{str(rot_statement)}') , GOT's idea ('{str(got_statement)}'), and LOT's idea ('{str(lot_statement)}'). Identify potential weaknesses, overlooked aspects, or inconsistencies regarding the mission '{str(mission_context)}'. Evaluate the correctness of the response in relation to the mission context. Suggest improvements."
             critic_statement = critic_agent.speak(prompt_critic, discussion_context_summary)
             debate_transcript.append({"speaker": critic_agent.name, "utterance": critic_statement})
             discussion_context_summary += f"\nRound {current_round} - {critic_agent.name}:\n{critic_statement}\n"
@@ -550,16 +572,10 @@ class MASOrchestrator:
 
         self.logger.info(f"MASOrchestrator: Iteration {iteration_count} - PRM Score: {prm_score:.2f}, Justification (start): {prm_justification[:150]}...")
         return prm_score, prm_justification, "ImplicitPRM_LLMEvaluator"
-
-    def run_collaborative_task(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=2, num_prm_iterations=3):
-        proactive_delay_between_stages = 5 
-        self.logger.section_start(f"Collaborative Task (with {num_prm_iterations} PRM Iterations)")
-        self.logger.info(f"Initial task description: {initial_task_description[:100]}...")
-
-        refined_task_prompt_for_core_logic = initial_task_description
-        
+    def ROT_phase(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages=15):
         if hasattr(self.rot_system, 'cognitive_preference_manager') and not isinstance(self.rot_system, DummyReversalOfThought):
             self.logger.info("--- ROT Phase ---")
+            refined_task_prompt_for_core_logic = initial_task_description
             try:
                 pgrr_output = self.rot_system.preference_guided_reverse_reasoning_warmup(
                     demonstrations=rot_demonstrations if rot_demonstrations else [("Example input", "Example output")],
@@ -572,15 +588,14 @@ class MASOrchestrator:
                         llm_taste_prompt_text=pgrr_output,
                         main_task_description_for_prm=initial_task_description
                     )
-                    if cpm_output and "dummy" not in str(cpm_output).lower() and "error" not in str(cpm_output).lower():
-                        refined_task_prompt_for_core_logic = cpm_output
-                        rot_solution = self.rot_system.solve_task_with_final_prompt(
-                            str(refined_task_prompt_for_core_logic),
-                            initial_task_description  
-                        )
-                        print("rot_solution",rot_solution)
-                    else:
-                         self.logger.warning("MASOrchestrator", "ROT CPM returned dummy or error, using PGRR output or initial task description.")
+                if cpm_output and "dummy" not in str(cpm_output).lower() and "error" not in str(cpm_output).lower():
+                    refined_task_prompt_for_core_logic = cpm_output
+                else:
+                    self.logger.warning("MASOrchestrator", "ROT CPM returned dummy or error, using PGRR output or initial task description.")
+                rot_solution = self.rot_system.solve_task_with_final_prompt(
+                    str(refined_task_prompt_for_core_logic),
+                    initial_task_description  
+                )
                 
                         
                 self.logger.info(f"ROT Phase refined task prompt: {refined_task_prompt_for_core_logic[:100]}...")
@@ -589,94 +604,47 @@ class MASOrchestrator:
                 time.sleep(proactive_delay_between_stages)
             except Exception as e_rot:
                 self.logger.warning("MASOrchestrator", f"ROT phase execution error: {e_rot}. Using original task description for core logic.")
+        return rot_solution,refined_task_prompt_for_core_logic
 
-        self.logger.info("--- GOT Phase ---")
-        got_best_idea_content = f"Default GOT core idea, task: {initial_task_description[:50]}..."
+    def GOT_phase(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3, proactive_delay_between_stages=15):
+        self.logger.info("--- GOT Phase Start ---")
         try:
-            initial_ideas = self.got_system.generate_and_evaluate_thoughts(
-                task_description=initial_task_description,
-                num_thoughts=2
-            )
+            # Step 1: initial ideas
+            ideas = self.system.generate_thoughts(initial_task_description, num=2)
+            for idea in ideas:
+                self.logger.info(f"Initial idea {idea.id}: {idea.content}")
 
-            # 打印初始想法及其 PRM 分數
-            for idea in initial_ideas:
-                self.logger.info(f"初始概念 ID {idea.id}: '{idea.content[:50]}...' (PRM Score: {idea.score:.2f}, Justification: {idea.prm_justification})")
-
-            # 2. 選擇最佳初始概念並詳細闡述，然後對闡述結果進行 PRM 評估
-            best_initial_idea = None
-            if initial_ideas:
-                # 根據 PRM 分數選擇最佳初始概念
-                initial_ideas.sort(key=lambda t: t.score, reverse=True)
-                best_initial_idea = initial_ideas[0]
-                self.logger.info(f"\n步驟 2：選擇 PRM 分數最高的初始概念 (ID: {best_initial_idea.id}) 進行詳細闡述")
-                
-                # 這裡我們直接使用 generate_and_evaluate_thoughts 來闡述並評估
-                # 注意：from_thought_ids 應該傳遞 ID 列表
-                elaborated_thoughts = self.got_system.generate_and_evaluate_thoughts(
-                    task_description=f"詳細闡述以下忠誠度計劃概念 '{best_initial_idea.content[:50]}...'，使其更具體可行。" + initial_task_description,
-                    num_thoughts=1,
-                    from_thought_ids=[best_initial_idea.id] 
-                )
+            # Step 2: elaborate best (first) idea
+            if ideas:
+                eid = ideas[0].id
+                elaborated = self.system.generate_thoughts(initial_task_description, num=1, from_ids=[eid])
+                for e in elaborated:
+                    self.logger.info(f"Elaborated {e.id}: {e.content}")
             else:
-                self.logger.warning("沒有初始概念可供選擇。跳過闡述步驟。")
-                elaborated_thoughts = []
+                elaborated = []
 
-            elaborated_idea = None
-            if elaborated_thoughts:
-                elaborated_idea = elaborated_thoughts[0]
-                self.logger.info(f"闡述後的概念 ID {elaborated_idea.id}: '{elaborated_idea.content[:50]}...' (PRM Score: {elaborated_idea.score:.2f}, Justification: {elaborated_idea.prm_justification})")
+            # Step 3: refine elaboration
+            refined = []
+            if elaborated:
+                refined_t = self.system.refine_thought(elaborated[0].id, initial_task_description, "Refine for clarity and detail.")
+                if refined_t:
+                    self.logger.info(f"Refined {refined_t.id}: {refined_t.content}")
+                    refined = [refined_t]
 
-                # 3. 精煉已闡述的概念，並對精煉結果進行 PRM 評估
-                self.logger.info(f"\n步驟 3：精煉已闡述概念 (ID: {elaborated_idea.id})")
-                refined_thought_obj = self.got_system.refine_and_evaluate_thought( # 使用新的整合方法
-                    elaborated_idea.id,
-                    task_description="精煉忠誠度計劃，使其更具吸引力和成本效益。" + initial_task_description,
-                    refinement_instruction="增加一個獨特的、低成本但高感知價值的獎勵元素，並考慮如何追踪會員進度。"
-                )
-                if refined_thought_obj:
-                    self.logger.info(f"精煉後的概念 ID {refined_thought_obj.id}: '{refined_thought_obj.content[:50]}...' (PRM Score: {refined_thought_obj.score:.2f}, Justification: {refined_thought_obj.prm_justification})")
-            else:
-                self.logger.warning("由於未能成功闡述概念，跳過精煉步驟。")
-                refined_thought_obj = None # 確保 refined_thought_obj 已定義
+            # Step 4: aggregate if possible
+            to_agg = [t.id for t in refined] + ([ideas[1].id] if len(ideas) > 1 else [])
+            if len(to_agg) >= 2:
+                agg = self.system.aggregate_thoughts(to_agg, initial_task_description)
+                if agg:
+                    self.logger.info(f"Aggregated {agg.id}: {agg.content}")
 
-            # 4. 嘗試聚合 (如果有多個高質量的想法)
-            # 這裡的聚合邏輯可以更複雜，例如聚合來自不同分支的最佳想法
-            # 為了簡化，我們假設聚合 best_initial_idea (如果與 elaborated_idea 的父節點不同) 和 refined_thought_obj
-            thoughts_for_aggregation = []
-            if best_initial_idea and refined_thought_obj and best_initial_idea.id != refined_thought_obj.parents[0].id : # 確保 refined_thought_obj 有父節點
-                thoughts_for_aggregation.append(best_initial_idea.id)
-                thoughts_for_aggregation.append(refined_thought_obj.id)
-            elif refined_thought_obj: # 如果只有精煉後的想法
-                thoughts_for_aggregation.append(refined_thought_obj.id)
-                if initial_ideas and len(initial_ideas) > 1 and initial_ideas[1].id != refined_thought_obj.parents[0].id: # 嘗試加入第二個初始想法
-                    thoughts_for_aggregation.append(initial_ideas[1].id)
-            # contents = [self.thoughts[tid].content for tid in thought_ids_to_aggregate]
-            print('thoughts_for_aggregation',len(thoughts_for_aggregation))
-            if thoughts_for_aggregation:
-                self.logger.info(f"\n步驟 4：聚合思維 {thoughts_for_aggregation}")
-                aggregated_thought = self.got_system.aggregate_thoughts( # 使用新的整合方法
-                    thoughts_for_aggregation,
-                    task_description="將以下忠誠度計劃的方面組合成一個統一且強大的最終方案，並著手解決。" + initial_task_description
-                )
-                if aggregated_thought:
-                    self.logger.info(f"聚合後的概念 : '{aggregated_thought}...' ")
-            else:
-                self.logger.info("沒有足夠的不同高品質思維進行聚合，跳過聚合步驟。")
-
-
-            self.logger.info("\n--- 最終所有思維的排序 (基於 PRM 風格評分) ---")
-            top_thoughts = self.got_system.rank_thoughts()
-            for i, thought_instance in enumerate(top_thoughts):
-                display_content = thought_instance.content[:80].replace('\n', ' ').strip()
-                self.logger.info(f"{i+1}. (ID: {thought_instance.id}, PRM Score: {thought_instance.score:.2f}) - {display_content}...")
-                self.logger.info(f"    Justification: {thought_instance.prm_justification}")
-            self.logger.info("\n--- GOT (PRM 風格評分) 範例用法結束 ---")
-        except Exception as e_got:
-            self.logger.warning("MASOrchestrator", f"GOT phase execution error: {e_got}. Using default GOT idea.")
-        
-        self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after GOT phase.")
+            self.system.print_graph()
+        except Exception as e:
+            self.logger.warning(f"GOT error: {e}")
+        self.logger.info(f"Sleeping {proactive_delay_between_stages}s")
         time.sleep(proactive_delay_between_stages)
-
+    
+    def LOT_phase(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages=15):
         self.logger.info("--- LOT Phase ---")
         lot_detailed_plan_str = f"Default LOT detailed plan, task: {initial_task_description[:50]}..."
         try:
@@ -692,88 +660,125 @@ class MASOrchestrator:
         
         self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after LOT phase.")
         time.sleep(proactive_delay_between_stages)
-
-        self.logger.info("--- MAS Debate Phase ---")
-        mas_debate_transcript = self.conduct_mas_debate(
-            mission_context=initial_task_description,
-            rot_idea=rot_solution,
-            got_idea=aggregated_thought,
-            lot_idea=lot_detailed_plan_str,
-            max_rounds=num_debate_rounds
-        )
-        debate_summary_for_synthesis = "Debate Record Summary:\n"
-        for entry in mas_debate_transcript:
-            debate_summary_for_synthesis += f"{entry['speaker']}: {str(entry['utterance'])[:100]}...\n"
+        return lot_detailed_plan_str
+    def run_collaborative_task(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,index = None):
         
-        self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after MAS Debate phase.")
-        time.sleep(proactive_delay_between_stages)
+        for current_prm_iteration in range(num_prm_iterations):
+            prm = False
+            if current_prm_iteration != 0:
+                prm = True
 
-        original_thoughtflow_summary_pre_prm = (
-            f"Initial Task: {initial_task_description[:100]}...\n"
-            f"Refined Task (if by ROT, partial): {refined_task_prompt_for_core_logic[:100]}...\n"
-            f"GOT Idea (partial): {aggregated_thought[:100]}...\n"
-            f"LOT Plan (partial): {lot_detailed_plan_str[:100]}...\n"
-            f"{debate_summary_for_synthesis}\n"
-            "--- End of Pre-PRM Thoughtflow Components ---"
-        )
-        self.logger.info(f"Original thoughtflow (pre-PRM) captured. Length: {len(original_thoughtflow_summary_pre_prm)}")
+            proactive_delay_between_stages = 15
+            self.logger.section_start(f"Collaborative Task (with {num_prm_iterations} PRM Iterations)")
+            self.logger.info(f"Initial task description: {initial_task_description[:100]}...")
+
+            rot_solution,refined_task_prompt_for_core_logic = self.ROT_phase(initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages = proactive_delay_between_stages)
+            aggregated_thought = self.GOT_phase(initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages = proactive_delay_between_stages)
+            lot_detailed_plan_str = self.LOT_phase(initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages = proactive_delay_between_stages)
+
+            if prm:
+                rot_solution,refined_task_prompt_for_core_logic = self.ROT_phase(optimization_llm_prompt, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages = proactive_delay_between_stages)
+                aggregated_thought = self.GOT_phase(optimization_llm_prompt, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages = proactive_delay_between_stages)
+                lot_detailed_plan_str = self.LOT_phase(optimization_llm_prompt, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages = proactive_delay_between_stages)
+
+            self.logger.info("--- MAS Debate Phase ---")
+            mas_debate_transcript = self.conduct_mas_debate(
+                mission_context=initial_task_description,
+                rot_idea=rot_solution,
+                got_idea=aggregated_thought,
+                lot_idea=lot_detailed_plan_str,
+                max_rounds=num_debate_rounds,
+            )
+            debate_summary_for_synthesis = "Debate Record Summary:\n"
+            for entry in mas_debate_transcript:
+                debate_summary_for_synthesis += f"{entry['speaker']}: {str(entry['utterance'])}...\n"
+            rows = []
+            for idx, entry in enumerate(mas_debate_transcript, start=1):
+                # 將多行的 utterance 攤平成單行，避免 CSV cell 裡出現換行
+                utterance_single_line = entry["utterance"].replace("\n", " ").strip()
+                rows.append({
+                    "Round": idx,
+                    "Speaker": entry["speaker"],
+                    "Utterance": utterance_single_line
+                })
+
+            # 2. 用 DataFrame
+            df = pd.DataFrame(rows, columns=["Round", "Speaker", "Utterance"])
+
+            # 3. 輸出 CSV（utf-8-sig 讓 Excel 能正確顯示中文）
+            df.to_csv(f"debate_transcripts\\debate_transcript_q{index}_r{current_prm_iteration}.csv", index=False, encoding="utf-8-sig")
+
+            print("✅ 已輸出 debate_transcript.csv，包含輪次、發言者與內容，可在 Excel 中直接瀏覽。")
+
+            self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after MAS Debate phase.")
+            time.sleep(proactive_delay_between_stages)
+
+            original_thoughtflow_summary_pre_prm = (
+                f"Initial Task: {initial_task_description}...\n"
+                f"Refined Task: {refined_task_prompt_for_core_logic}...\n"
+                f"GOT Idea: {aggregated_thought}...\n"
+                f"LOT Idea: {lot_detailed_plan_str}...\n"
+                f"{debate_summary_for_synthesis}\n"
+                "--- End of Pre-PRM Thoughtflow Components ---"
+            )
+            self.logger.info(f"Original thoughtflow (pre-PRM) captured. Length: {len(original_thoughtflow_summary_pre_prm)}")
 
 
-        self.logger.info("--- Initial Synthesis Phase ---")
-        current_reasoning_artifact = f"Initial synthesis result, task: {initial_task_description[:50]}..."
-        if not self.synthesis_llm or isinstance(self.synthesis_llm, BaseDummyLLM) or not hasattr(self.synthesis_llm, 'generate'):
-            self.logger.warning("MASOrchestrator", "Synthesis LLM not effectively initialized. Using placeholder for initial synthesis.")
-        else:
-            synthesis_prompt = f"""
-            Based on the following task context, outputs from different reasoning modules (ROT, GOT, LOT), and a debate, generate a comprehensive initial answer or reasoning process.
-            Task Context :
-            {initial_task_description}
-            ROT Core Idea:
-            {rot_solution}
-            GOT Core Idea:
-            {aggregated_thought}
-            LOT Detailed Plan:
-            {lot_detailed_plan_str}
-            Debate Summary:
-            {debate_summary_for_synthesis}
-            Synthesize these elements into a coherent and comprehensive initial answer/reasoning process for the task:
-            **Important:**  
-            Don’t mention where each piece of information came from (e.g., ROT, GOT, or LOT).  
-            Just use the provided details to form a clear, complete answer to the task.
-            """
-            try:
-                synthesis_output = call_llm_with_retry(
-                    self.synthesis_llm.generate,
-                    prompt=synthesis_prompt,
-                    logger=self.logger,
-                    llm_name="InitialSynthesis_LLM"
-                )
-                if synthesis_output and not str(synthesis_output).lower().startswith("error:") and not str(synthesis_output).lower().startswith("llm dummy response"):
-                    current_reasoning_artifact = str(synthesis_output)
-                else:
-                    self.logger.warning("MASOrchestrator", f"Initial synthesis LLM did not produce valid output or produced error/dummy response. Using placeholder. Output: {synthesis_output}")
-            except Exception as e_synth:
-                self.logger.error("MASOrchestrator", f"Critical error during initial synthesis LLM call (after retries): {e_synth}")
+            self.logger.info("--- Initial Synthesis Phase ---")
+            current_reasoning_artifact = f"Initial synthesis result, task: {initial_task_description[:50]}..."
+            if not self.synthesis_llm or isinstance(self.synthesis_llm, BaseDummyLLM) or not hasattr(self.synthesis_llm, 'generate'):
+                self.logger.warning("MASOrchestrator", "Synthesis LLM not effectively initialized. Using placeholder for initial synthesis.")
+            else:
+                synthesis_prompt = f"""
+                Based on the following task context, outputs from different reasoning modules (ROT, GOT, LOT), and a debate, generate a comprehensive initial answer or reasoning process.
+                Task Context :
+                {initial_task_description}
+                ROT Core Idea:
+                {rot_solution}
+                GOT Core Idea:
+                {aggregated_thought}
+                LOT Detailed Plan:
+                {lot_detailed_plan_str}
+                Debate Summary:
+                {debate_summary_for_synthesis}
+                Synthesize these elements into a coherent and comprehensive initial answer/reasoning process for the task:
+                **Important:**  
+                Don’t mention where each piece of information came from (e.g., ROT, GOT, or LOT).  
+                Just use the provided details to form a clear, complete answer to the task.
+                """
+                try:
+                    synthesis_output = call_llm_with_retry(
+                        self.synthesis_llm.generate,
+                        prompt=synthesis_prompt,
+                        logger=self.logger,
+                        llm_name="InitialSynthesis_LLM"
+                    )
+                    if synthesis_output and not str(synthesis_output).lower().startswith("error:") and not str(synthesis_output).lower().startswith("llm dummy response"):
+                        current_reasoning_artifact = str(synthesis_output)
+                    else:
+                        self.logger.warning("MASOrchestrator", f"Initial synthesis LLM did not produce valid output or produced error/dummy response. Using placeholder. Output: {synthesis_output}")
+                except Exception as e_synth:
+                    self.logger.error("MASOrchestrator", f"Critical error during initial synthesis LLM call (after retries): {e_synth}")
+            
+            self.logger.answer("INITIAL_SYNTHESIS", current_reasoning_artifact, is_final=False, detail_level=1)
+            self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after Initial Synthesis.")
+            time.sleep(proactive_delay_between_stages)
+
+
+            self.logger.section_start(f"Implicit PRM Iterative Optimization ({num_prm_iterations} Iterations)")
+            best_artifact_from_prm_iterations = current_reasoning_artifact
+            best_prm_score_overall = -1.0
+            prm_iteration_details = []
+
         
-        self.logger.answer("INITIAL_SYNTHESIS", current_reasoning_artifact, is_final=False, detail_level=1)
-        self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after Initial Synthesis.")
-        time.sleep(proactive_delay_between_stages)
-
-
-        self.logger.section_start(f"Implicit PRM Iterative Optimization ({num_prm_iterations} Iterations)")
-        best_artifact_from_prm_iterations = current_reasoning_artifact
-        best_prm_score_overall = -1.0
-        prm_iteration_details = []
-
-        for i in range(num_prm_iterations):
-            self.logger.info(f"--- PRM Iteration {i + 1}/{num_prm_iterations} ---")
+            self.logger.info(f"--- PRM Iteration {current_prm_iteration + 1}/{num_prm_iterations+1} ---")
             prm_score, prm_justification, _ = self._get_prm_feedback_for_reasoning_process(
                 refined_task_prompt_for_core_logic,
                 current_reasoning_artifact,
-                i + 1
+                current_prm_iteration + 1
             )
             prm_iteration_details.append({
-                "iteration": i + 1,
+                "iteration": current_prm_iteration + 1,
                 "score": prm_score,
                 "justification": prm_justification,
                 "artifact_content_before_opt": str(current_reasoning_artifact)[:200] + "..."
@@ -782,53 +787,62 @@ class MASOrchestrator:
             if prm_score > best_prm_score_overall:
                 best_prm_score_overall = prm_score
                 best_artifact_from_prm_iterations = current_reasoning_artifact
-                self.logger.info(f"PRM Iteration {i+1}: New best artifact found with score {prm_score:.3f}")
+                self.logger.info(f"PRM Iteration {current_prm_iteration+1}: New best artifact found with score {prm_score:.3f}")
 
-            if prm_score >= 0.95 and i < num_prm_iterations - 1:
-                self.logger.info(f"PRM Iteration {i+1}: Score {prm_score:.3f} reached early termination threshold. Stopping PRM iterations.")
+            if prm_score >= 0.95 and current_prm_iteration < num_prm_iterations :
+                self.logger.info(f"PRM Iteration {current_prm_iteration+1}: Score {prm_score:.3f} reached early termination threshold. Stopping PRM iterations.")
                 break
-            
-            self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s before PRM optimization call (Iter {i+1}).")
+
+            self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s before PRM optimization call (Iter {current_prm_iteration+1}).")
             time.sleep(proactive_delay_between_stages)
 
-            if i < num_prm_iterations - 1:
+            if current_prm_iteration < num_prm_iterations :
                 optimization_llm_prompt = f"""
                 Original Task:
                 {initial_task_description}
-                Current Reasoning/Answer (Version {i+1}):
+                Current Reasoning/Answer (Version {current_prm_iteration+1}):
                 \"\"\"
                 {current_reasoning_artifact}
                 \"\"\"
                 Process Reward Model (PRM) Evaluation & Improvement Suggestions:
                 PRM Score: {prm_score:.2f}
                 PRM Improvement Suggestions: {prm_justification}
-                Strictly following the PRM's improvement suggestions, revise and enhance the "Current Reasoning/Answer" to create an improved version (Version {i+2}).
+                Strictly following the PRM's improvement suggestions, revise and enhance the "Current Reasoning/Answer" to create an improved version (Version {current_prm_iteration+2}).
                 Ensure the new version addresses the issues pointed out by the PRM and aims for improvement in correctness, completeness, logicality, and clarity.
-                Improved Reasoning/Answer (Version {i+2}):
+                Improved Reasoning/Answer (Version {current_prm_iteration+2}):
                 """
-                self.logger.info(f"PRM Iteration {i+1}: Generating optimized version based on PRM feedback...")
-                if not self.iterative_optimizer_llm or isinstance(self.iterative_optimizer_llm, BaseDummyLLM) or not hasattr(self.iterative_optimizer_llm, 'generate'):
-                    self.logger.warning("MASOrchestrator", "Iterative optimizer LLM not effectively initialized. Using placeholder as optimized artifact.")
-                    current_reasoning_artifact = f"Placeholder optimized artifact (Version {i+2}) (after PRM feedback)"
-                else:
-                    try:
-                        optimized_output = call_llm_with_retry(
-                            self.iterative_optimizer_llm.generate,
-                            prompt=optimization_llm_prompt,
-                            logger=self.logger,
-                            llm_name=f"PRM_Optimization_LLM_Iter_{i+2}"
-                        )
-                        if optimized_output and not str(optimized_output).lower().startswith("error:") and not str(optimized_output).lower().startswith("llm dummy response"):
-                            current_reasoning_artifact = str(optimized_output)
-                        else:
-                            self.logger.warning("MASOrchestrator", f"Optimizer LLM did not produce valid output or produced error/dummy response. Retaining previous version. Output: {optimized_output}")
-                    except Exception as e_opt:
-                        self.logger.error("MASOrchestrator", f"Critical error during optimization LLM call (after retries): {e_opt}. Retaining previous version.")
-                self.logger.answer(f"OPTIMIZED_ARTIFACT_ITER_{i+2}", current_reasoning_artifact, is_final=False, detail_level=1)
-                self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after PRM optimization call (Iter {i+1}).")
+                self.logger.info(f"PRM Iteration {current_prm_iteration+1}: Generating optimized version based on PRM feedback...")
+                # if not self.iterative_optimizer_llm or isinstance(self.iterative_optimizer_llm, BaseDummyLLM) or not hasattr(self.iterative_optimizer_llm, 'generate'):
+                #     self.logger.warning("MASOrchestrator", "Iterative optimizer LLM not effectively initialized. Using placeholder as optimized artifact.")
+                #     current_reasoning_artifact = f"Placeholder optimized artifact (Version {i+2}) (after PRM feedback)"
+                # else:
+                #     try:
+                #         # optimized_output = call_llm_with_retry(
+                #         #     self.iterative_optimizer_llm.generate,
+                #         #     prompt=optimization_llm_prompt,
+                #         #     logger=self.logger,
+                #         #     llm_name=f"PRM_Optimization_LLM_Iter_{i+2}"
+                #         # )
+                #         self.conduct_mas_debate(
+                #             mission_context=initial_task_description,
+                #             rot_idea=rot_solution,
+                #             got_idea=aggregated_thought,
+                #             lot_idea=lot_detailed_plan_str,
+                #             max_rounds=num_debate_rounds,
+                #             prm = True,
+                #             prm_prompt = optimization_llm_prompt
+                #         )
+                #         if optimized_output and not str(optimized_output).lower().startswith("error:") and not str(optimized_output).lower().startswith("llm dummy response"):
+                #             current_reasoning_artifact = str(optimized_output)
+                #         else:
+                #             self.logger.warning("MASOrchestrator", f"Optimizer LLM did not produce valid output or produced error/dummy response. Retaining previous version. Output: {optimized_output}")
+                #     except Exception as e_opt:
+                #         self.logger.error("MASOrchestrator", f"Critical error during optimization LLM call (after retries): {e_opt}. Retaining previous version.")
+                self.logger.answer(f"OPTIMIZED_ARTIFACT_ITER_{current_prm_iteration+2}", current_reasoning_artifact, is_final=False, detail_level=1)
+                self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after PRM optimization call (Iter {current_prm_iteration+1}).")
                 time.sleep(proactive_delay_between_stages)
             else:
-                self.logger.info(f"PRM Iteration {i+1}: Final PRM evaluation. No further optimization in this loop.")
+                self.logger.info(f"PRM Iteration {current_prm_iteration+1}: Final PRM evaluation. No further optimization in this loop.")
         self.logger.section_end(f"Implicit PRM Iterative Optimization")
 
         final_synthesized_plan = best_artifact_from_prm_iterations
@@ -1106,8 +1120,8 @@ def main():
     logger.section_start("Main Evaluation Flow")
 
     global IMPORTS_SUCCESSFUL, GEMINI_API_KEY, torch 
-    # GOOGLE_API_KEY = 'AIzaSyAIAnuWgjvfbF0yVfotMybdAaZjUZq_8fg'
-    # GEMINI_API_KEY = 'AIzaSyAIAnuWgjvfbF0yVfotMybdAaZjUZq_8fg'
+    GOOGLE_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
+    GEMINI_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
     print('gemini_api_key',GEMINI_API_KEY)
     try:
         import torch as pytorch_module 
@@ -1130,7 +1144,8 @@ def main():
     elif isinstance(evaluation_llm_interface, BaseDummyLLM):
          logger.warning("main", "Evaluation LLM (from orchestrator.synthesis_llm) is BaseDummyLLM. Evaluation results will be placeholders.")
 
-    csv_file_path = "dataset\\dolly_gsm8k.csv" 
+    # csv_file_path = "dataset\\dolly_gsm8k.csv" 
+    csv_file_path = "data.csv" 
     logger.info(f"Attempting to load CSV data from: {csv_file_path}")
 
     if not os.path.exists(csv_file_path):
@@ -1225,8 +1240,9 @@ def main():
         orchestrator_outputs = orchestrator.run_collaborative_task(
             initial_task_description=question, 
             rot_demonstrations=rot_demonstrations_for_this_item,
-            num_debate_rounds=2,
-            num_prm_iterations=3
+            num_debate_rounds=4,
+            num_prm_iterations=3,
+            index = index
         )
         generated_answer = orchestrator_outputs.get("synthesized_final_plan", "Failed to generate answer.")
         original_thoughtflow_summary = orchestrator_outputs.get("original_thoughtflow_summary_pre_prm", "Failed to generate original thoughtflow summary.")
@@ -1278,7 +1294,7 @@ def main():
         logger.info("No items were processed.")
     else:
         results_df = pd.DataFrame(all_results)
-        output_excel_filename = "evaluation_results_dolly_gsm8k.xlsx" 
+        output_excel_filename = "result\\evaluation_results_dolly_gsm8k.xlsx" 
         try:
             results_df.to_excel(output_excel_filename, index=False, engine='openpyxl')
             logger.info(f"Detailed evaluation results saved to: {output_excel_filename}")
@@ -1311,6 +1327,19 @@ def main():
 
     logger.section_end("Overall Results Summary")
     logger.section_end("Main Evaluation Flow")
+def send_discord_notification(content, webhook_url):
+    data = {"content": content}
+    response = requests.post(webhook_url, json=data)
+    if response.status_code == 204:
+        print("✅ 成功送出 Discord 通知")
+    else:
+        print(f"❌ 發送失敗：{response.status_code} - {response.text}")
 
 if __name__ == "__main__":
     main()
+
+    import requests
+    # ✅ 程式結束時呼叫這行
+    webhook_url = "https://discord.com/api/webhooks/1374078975202295929/n-YZFYepU_L7Ar3JzjxGVAxd1OYiNoTsFumMNcJI-idlldxPcPDJDc3zZ5ckCkQnYyD2"
+    send_discord_notification("✅ 程式完成，快來看結果！", webhook_url)
+

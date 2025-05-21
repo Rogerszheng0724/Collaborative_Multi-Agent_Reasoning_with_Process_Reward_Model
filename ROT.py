@@ -493,7 +493,8 @@ class ReversalOfThought:
         # Before solving the task, one could (or MASOrchestrator could) re-verify the PRM score of final_prompt_text.
         # Here, it's assumed final_prompt_text has been PRM-evaluated (possibly in the CPM stage) and is considered acceptable.
         
-        full_solving_prompt = f"{final_prompt_text}\n\nNow, based on the above definition and instructions, solve the following specific problem:\nInput: {problem_input}\nOutput:"
+        # full_solving_prompt = f"{final_prompt_text}\n\nNow, based on the above definition and instructions, solve the following specific problem:\nInput: {problem_input}\nOutput:"
+        full_solving_prompt = f"{final_prompt_text}\n\nNow, based on the above definition and instructions, solve the following specific problem:\nInput: {problem_input}\nOutput:Please provide your complete response (you may include reasoning, context, etc.), but ensure you include a clear, concrete answer to the problem."
         
         self.logger.info(f"ROT: Solving problem with final prompt: '{problem_input}'")
         # Use lower temperature for solving specific problems to aim for precision
