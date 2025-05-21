@@ -19,7 +19,8 @@ class Thought:
 
 class GeminiLLM:
     # def __init__(self, api_key, model_name="gemini-1.5-flash-latest"): # 更新模型名稱以符合常見用法
-    def __init__(self, api_key, model_name="gemini-2.0-flash"): # 更新模型名稱以符合常見用法
+    # def __init__(self, api_key, model_name="gemini-2.0-flash"): # 更新模型名稱以符合常見用法
+    def __init__(self, api_key, model_name="gemini-2.0-flash-lite"): # 更新模型名稱以符合常見用法
         """
         Initializes the Gemini LLM interface.
         Args:

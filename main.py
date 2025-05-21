@@ -463,9 +463,9 @@ class MASOrchestrator:
             self.logger.info(f"Debate Round {current_round}: ROT Representative")
             # prompt_rot = f"As the ROT Representative, elaborate on your core idea: '{str(rot_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
             prompt_rot = f"""
-                As the ROT Representative, elaborate on your core idea: '{str(rot_idea)}', considering the mission: '{str(mission_context)}'. 
+                As the ROT(Reversal Of Thought) Representative, elaborate on your core idea: '{str(rot_idea)}', considering the mission: '{str(mission_context)}'. 
                 Explain how your idea addresses the core problem and highlight its key strengths. 
-                Then, critically evaluate the GOT idea: '{str(got_idea)}' and the LOT idea: '{str(lot_idea)}'. 
+                Then, critically evaluate the GOT(Graph Of Thoughts) idea: '{str(got_idea)}' and the LOT(Layer Of Thoughts)  idea: '{str(lot_idea)}'. 
                 Discuss their potential weaknesses, overlooked aspects, or limitations compared to your own idea, and explain why your approach is preferable.
                 """
             rot_statement = rot_agent.speak(prompt_rot, discussion_context_summary)
@@ -479,9 +479,9 @@ class MASOrchestrator:
             self.logger.info(f"Debate Round {current_round}: GOT Representative")
             # prompt_got = f"As the GOT Representative, elaborate on your core idea: '{str(got_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
             prompt_got = f"""
-                As the GOT Representative, elaborate on your core idea: '{str(got_idea)}', considering the mission: '{str(mission_context)}'. 
+                As the GOT(Graph Of Thoughts) Representative, elaborate on your core idea: '{str(got_idea)}', considering the mission: '{str(mission_context)}'. 
                 Explain how your idea addresses the core problem and highlight its key strengths. 
-                Then, critically evaluate the ROT idea: '{str(rot_idea)}' and the LOT idea: '{str(lot_idea)}'. 
+                Then, critically evaluate the ROT(ReversalOfThought) idea: '{str(rot_idea)}' and the LOT(Layer Of Thoughts)  idea: '{str(lot_idea)}'. 
                 Discuss their potential weaknesses, overlooked aspects, or limitations compared to your own idea, and explain why your approach is preferable.
                 """
             got_statement = got_agent.speak(prompt_got, discussion_context_summary)
@@ -495,9 +495,9 @@ class MASOrchestrator:
             self.logger.info(f"Debate Round {current_round}: LOT Representative")
             # prompt_lot = f"As the LOT Representative, elaborate on your core idea: '{str(lot_idea)[:150]}...', considering the mission: '{str(mission_context)[:100]}...'. Explain its strengths and how it addresses the core problem."
             prompt_lot = f"""
-                As the LOT Representative, elaborate on your core idea: '{str(lot_idea)}', considering the mission: '{str(mission_context)}'. 
+                As the LOT(Layer Of Thoughts) Representative, elaborate on your core idea: '{str(lot_idea)}', considering the mission: '{str(mission_context)}'. 
                 Explain how your idea addresses the core problem and highlight its key strengths. 
-                Then, critically evaluate the GOT idea: '{str(got_idea)}' and the ROT idea: '{str(rot_idea)}'. 
+                Then, critically evaluate the GOT(Graph Of Thoughts) idea: '{str(got_idea)}' and the ROT(ReversalOfThought) idea: '{str(rot_idea)}'. 
                 Discuss their potential weaknesses, overlooked aspects, or limitations compared to your own idea, and explain why your approach is preferable.
                 """
             # prompt_lot = f"As the LOT Representative, elaborate on your core idea:: '{str(lot_idea)[:150]}...'. Explain how it implements GOT's idea ('{str(got_statement)[:100]}...') and addresses potential challenges in implementing the mission '{str(mission_context)[:100]}...'."
@@ -572,8 +572,10 @@ class MASOrchestrator:
 
         self.logger.info(f"MASOrchestrator: Iteration {iteration_count} - PRM Score: {prm_score:.2f}, Justification (start): {prm_justification[:150]}...")
         return prm_score, prm_justification, "ImplicitPRM_LLMEvaluator"
+
     def ROT_phase(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages=15):
         if hasattr(self.rot_system, 'cognitive_preference_manager') and not isinstance(self.rot_system, DummyReversalOfThought):
+        # if hasattr(self.rot_system, 'cognitive_preference_manager') :
             self.logger.info("--- ROT Phase ---")
             refined_task_prompt_for_core_logic = initial_task_description
             try:
@@ -636,12 +638,21 @@ class MASOrchestrator:
                 agg = self.got_system.aggregate_thoughts(to_agg, initial_task_description)
                 if agg:
                     self.logger.info(f"Aggregated {agg.id}: {agg.content}")
-
-            self.got_system.print_graph()
+                    aggregated_thought = agg     
+            elif len(to_agg) == 1:
+                # only one candidate: just return that Thought
+                single_id = to_agg[0]
+                candidate = self.got_system.get_thought(single_id)
+                if candidate:
+                    self.logger.info(f"Only one thought ({single_id}); using it as aggregation.")
+                    aggregated_thought = candidate
+            # self.got_system.print_graph()
         except Exception as e:
             self.logger.warning("GOT",f"GOT error: {e}")
         self.logger.info(f"Sleeping {proactive_delay_between_stages}s")
         time.sleep(proactive_delay_between_stages)
+        return aggregated_thought.content
+
     
     def LOT_phase(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages=15):
         self.logger.info("--- LOT Phase ---")
@@ -660,6 +671,7 @@ class MASOrchestrator:
         self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after LOT phase.")
         time.sleep(proactive_delay_between_stages)
         return lot_detailed_plan_str
+
     def run_collaborative_task(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,index = None):
         
         for current_prm_iteration in range(num_prm_iterations):
@@ -705,7 +717,7 @@ class MASOrchestrator:
             df = pd.DataFrame(rows, columns=["Round", "Speaker", "Utterance"])
 
             # 3. 輸出 CSV（utf-8-sig 讓 Excel 能正確顯示中文）
-            df.to_csv(f"debate_transcripts\\part2\\debate_transcript_q{index}_r{current_prm_iteration}.csv", index=False, encoding="utf-8-sig")
+            df.to_csv(f"debate_transcripts\\part1\\debate_transcript_q{index}_r{current_prm_iteration}.csv", index=False, encoding="utf-8-sig")
 
             print("✅ 已輸出 debate_transcript.csv，包含輪次、發言者與內容，可在 Excel 中直接瀏覽。")
 
@@ -1118,8 +1130,8 @@ def main():
     logger.section_start("Main Evaluation Flow")
 
     global IMPORTS_SUCCESSFUL, GEMINI_API_KEY, torch 
-    GOOGLE_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
-    GEMINI_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
+    # GOOGLE_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
+    # GEMINI_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
     print('gemini_api_key',GEMINI_API_KEY)
     try:
         import torch as pytorch_module 
@@ -1142,7 +1154,7 @@ def main():
     elif isinstance(evaluation_llm_interface, BaseDummyLLM):
          logger.warning("main", "Evaluation LLM (from orchestrator.synthesis_llm) is BaseDummyLLM. Evaluation results will be placeholders.")
 
-    csv_file_path = "dataset\\dolly_gsm8k_MMLU_part2.csv" 
+    csv_file_path = "dataset\\dolly_gsm8k_MMLU_part1.csv" 
     # csv_file_path = "data.csv"
     logger.info(f"Attempting to load CSV data from: {csv_file_path}")
 
@@ -1292,7 +1304,7 @@ def main():
         logger.info("No items were processed.")
     else:
         results_df = pd.DataFrame(all_results)
-        output_excel_filename = "result\\part2\\evaluation_results_dolly_gsm8k.xlsx" 
+        output_excel_filename = "result\\part1\\evaluation_results_dolly_gsm8k.xlsx" 
         try:
             results_df.to_excel(output_excel_filename, index=False, engine='openpyxl')
             logger.info(f"Detailed evaluation results saved to: {output_excel_filename}")
