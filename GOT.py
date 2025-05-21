@@ -14,7 +14,7 @@ class Thought:
 
     def __repr__(self):
         # Replace newlines with spaces for single-line display
-        display_content = self.content[:30].replace('\n', ' ')
+        display_content = self.content.replace('\n', ' ')
         return f"Thought(id={self.id}, score={self.score:.2f}, generated_by_llm={self.generated_by_llm}, content='{display_content}...')"
 
 class GeminiLLM:
@@ -42,7 +42,7 @@ class GeminiLLM:
         Returns:
             str: The LLM's response text.
         """
-        print(f"\n--- Sending prompt to Gemini ---\n{prompt[:500]}...\n--- End of Gemini prompt ---") # Shorten printed prompt length
+        print(f"\n--- Sending prompt to Gemini ---\n{prompt}...\n--- End of Gemini prompt ---") # Shorten printed prompt length
         try:
             effective_safety_settings = safety_settings or [
                 {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
@@ -70,7 +70,7 @@ class GeminiLLM:
                 print(f"Warning: Prompt blocked due to {block_reason_str}. Safety ratings: {response.prompt_feedback.safety_ratings}")
                 return f"Error: Prompt blocked due to {block_reason_str}."
 
-            print(f"--- Received Gemini response ---\n{llm_response_text[:500]}...\n--- End of Gemini response ---") # Shorten printed response length
+            print(f"--- Received Gemini response ---\n{llm_response_text}...\n--- End of Gemini response ---") # Shorten printed response length
             return llm_response_text if llm_response_text else "Error: No content generated or issue with the prompt."
         except Exception as e:
             print(f"Error during Gemini API call: {e}")
@@ -82,7 +82,8 @@ class GraphOfThoughts:
         self.thoughts = {} # Stores all thoughts by id
         self.next_thought_id = 0
         self.llm = llm_interface
-        self.logger = logger if logger else self._get_default_logger() # Use passed logger or default logger
+        self.next_id = 0
+        self.logger = logger or self._default_logger()
 
     def _get_default_logger(self):
         # A simple default logger if none is provided externally
@@ -121,13 +122,7 @@ class GraphOfThoughts:
             for i,c in enumerate(existing): p += f"Prev{i+1}: {c}\n"
         p += f"Generate {n} new thought(s) to advance the task."
         return p
-    def print_graph(self):
-        self.logger.info("Current Graph:")
-        for tid, t in sorted(self.thoughts.items()):
-            cnt = t.content[:60].replace('\n',' ')
-            pids = [p.id for p in t.parents]
-            cids = [c.id for c in t.children]
-            self.logger.info(f"ID {tid}: {cnt} | parents={pids} children={cids}")
+
     def _get_new_id(self):
         new_id = self.next_thought_id
         self.next_thought_id += 1
@@ -173,6 +168,13 @@ class GraphOfThoughts:
         prompt = f"Task: {task_description}\nCombine:\n" + "\n".join(contents)
         resp = self.llm.generate(prompt)
         return self.add_thought(resp, parent_ids=ids)
+    def print_graph(self):
+        self.logger.info("Current Graph:")
+        for tid, t in sorted(self.thoughts.items()):
+            cnt = t.content[:60].replace('\n',' ')
+            pids = [p.id for p in t.parents]
+            cids = [c.id for c in t.children]
+            self.logger.info(f"ID {tid}: {cnt} | parents={pids} children={cids}")
     # --- Prompter Module ---
     def _generate_prompt_for_new_thought(self, task_description, existing_thoughts_content=None, num_new_thoughts=1):
         prompt = f"Main task: {task_description}\n"
@@ -417,22 +419,22 @@ class GraphOfThoughts:
     def get_thought(self, thought_id):
         return self.thoughts.get(thought_id)
 
-    def print_graph(self):
-        self.logger.info("\n--- Current Thought Graph ---")
-        if not self.thoughts:
-            self.logger.info("Thought graph is empty.")
-            return
-        for thought_id in sorted(self.thoughts.keys()): # Iterate in sorted order for consistent output
-            thought = self.thoughts[thought_id]
-            display_content = thought.content[:100].replace('\n', ' ').strip() # Limit length and remove newlines for display
-            self.logger.info(f"\nThought ID: {thought.id} (PRM Score: {thought.score:.2f}, LLM Generated: {thought.generated_by_llm})")
-            self.logger.info(f"  Content: '{display_content}...'")
-            self.logger.info(f"  PRM Justification: {thought.prm_justification}")
-            parent_ids = [p.id for p in thought.parents]
-            children_ids = [c.id for c in thought.children]
-            self.logger.info(f"  Parent Thought IDs: {parent_ids if parent_ids else 'None'}")
-            self.logger.info(f"  Child Thought IDs: {children_ids if children_ids else 'None'}")
-        self.logger.info("--- End of Thought Graph ---")
+    # def print_graph(self):
+    #     self.logger.info("\n--- Current Thought Graph ---")
+    #     if not self.thoughts:
+    #         self.logger.info("Thought graph is empty.")
+    #         return
+    #     for thought_id in sorted(self.thoughts.keys()): # Iterate in sorted order for consistent output
+    #         thought = self.thoughts[thought_id]
+    #         display_content = thought.content[:100].replace('\n', ' ').strip() # Limit length and remove newlines for display
+    #         self.logger.info(f"\nThought ID: {thought.id} (PRM Score: {thought.score:.2f}, LLM Generated: {thought.generated_by_llm})")
+    #         self.logger.info(f"  Content: '{display_content}...'")
+    #         self.logger.info(f"  PRM Justification: {thought.prm_justification}")
+    #         parent_ids = [p.id for p in thought.parents]
+    #         children_ids = [c.id for c in thought.children]
+    #         self.logger.info(f"  Parent Thought IDs: {parent_ids if parent_ids else 'None'}")
+    #         self.logger.info(f"  Child Thought IDs: {children_ids if children_ids else 'None'}")
+    #     self.logger.info("--- End of Thought Graph ---")
 
 # --- Encapsulate example usage into a function ---
 def run_got_example_workflow_with_prm_scoring(api_key):

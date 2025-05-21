@@ -609,14 +609,14 @@ class MASOrchestrator:
         self.logger.info("--- GOT Phase Start ---")
         try:
             # Step 1: initial ideas
-            ideas = self.system.generate_thoughts(initial_task_description, num=2)
+            ideas = self.got_system.generate_thoughts(initial_task_description, num=2)
             for idea in ideas:
                 self.logger.info(f"Initial idea {idea.id}: {idea.content}")
 
             # Step 2: elaborate best (first) idea
             if ideas:
                 eid = ideas[0].id
-                elaborated = self.system.generate_thoughts(initial_task_description, num=1, from_ids=[eid])
+                elaborated = self.got_system.generate_thoughts(initial_task_description, num=1, from_ids=[eid])
                 for e in elaborated:
                     self.logger.info(f"Elaborated {e.id}: {e.content}")
             else:
@@ -625,7 +625,7 @@ class MASOrchestrator:
             # Step 3: refine elaboration
             refined = []
             if elaborated:
-                refined_t = self.system.refine_thought(elaborated[0].id, initial_task_description, "Refine for clarity and detail.")
+                refined_t = self.got_system.refine_thought(elaborated[0].id, initial_task_description, "Refine for clarity and detail.")
                 if refined_t:
                     self.logger.info(f"Refined {refined_t.id}: {refined_t.content}")
                     refined = [refined_t]
@@ -633,13 +633,13 @@ class MASOrchestrator:
             # Step 4: aggregate if possible
             to_agg = [t.id for t in refined] + ([ideas[1].id] if len(ideas) > 1 else [])
             if len(to_agg) >= 2:
-                agg = self.system.aggregate_thoughts(to_agg, initial_task_description)
+                agg = self.got_system.aggregate_thoughts(to_agg, initial_task_description)
                 if agg:
                     self.logger.info(f"Aggregated {agg.id}: {agg.content}")
 
-            self.system.print_graph()
+            self.got_system.print_graph()
         except Exception as e:
-            self.logger.warning(f"GOT error: {e}")
+            self.logger.warning("GOT",f"GOT error: {e}")
         self.logger.info(f"Sleeping {proactive_delay_between_stages}s")
         time.sleep(proactive_delay_between_stages)
     
@@ -705,7 +705,7 @@ class MASOrchestrator:
             df = pd.DataFrame(rows, columns=["Round", "Speaker", "Utterance"])
 
             # 3. 輸出 CSV（utf-8-sig 讓 Excel 能正確顯示中文）
-            df.to_csv(f"debate_transcripts\\debate_transcript_q{index}_r{current_prm_iteration}.csv", index=False, encoding="utf-8-sig")
+            df.to_csv(f"debate_transcripts\\part2\\debate_transcript_q{index}_r{current_prm_iteration}.csv", index=False, encoding="utf-8-sig")
 
             print("✅ 已輸出 debate_transcript.csv，包含輪次、發言者與內容，可在 Excel 中直接瀏覽。")
 
@@ -1142,8 +1142,8 @@ def main():
     elif isinstance(evaluation_llm_interface, BaseDummyLLM):
          logger.warning("main", "Evaluation LLM (from orchestrator.synthesis_llm) is BaseDummyLLM. Evaluation results will be placeholders.")
 
-    # csv_file_path = "dataset\\dolly_gsm8k.csv" 
-    csv_file_path = "data.csv" 
+    csv_file_path = "dataset\\dolly_gsm8k_MMLU_part2.csv" 
+    # csv_file_path = "data.csv"
     logger.info(f"Attempting to load CSV data from: {csv_file_path}")
 
     if not os.path.exists(csv_file_path):
@@ -1292,7 +1292,7 @@ def main():
         logger.info("No items were processed.")
     else:
         results_df = pd.DataFrame(all_results)
-        output_excel_filename = "result\\evaluation_results_dolly_gsm8k.xlsx" 
+        output_excel_filename = "result\\part2\\evaluation_results_dolly_gsm8k.xlsx" 
         try:
             results_df.to_excel(output_excel_filename, index=False, engine='openpyxl')
             logger.info(f"Detailed evaluation results saved to: {output_excel_filename}")
