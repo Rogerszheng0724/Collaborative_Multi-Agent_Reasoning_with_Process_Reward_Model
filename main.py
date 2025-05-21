@@ -596,7 +596,6 @@ class MASOrchestrator:
                     str(refined_task_prompt_for_core_logic),
                     initial_task_description  
                 )
-                
                         
                 self.logger.info(f"ROT Phase refined task prompt: {refined_task_prompt_for_core_logic[:100]}...")
                 self.logger.info(f"ROT Phase output : {rot_solution[:100]}...")
