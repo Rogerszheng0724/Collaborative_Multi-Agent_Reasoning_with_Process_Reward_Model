@@ -1,6 +1,6 @@
 instruction,context,response,category
-"Given this paragraph, how many seasons are there of Ted Lasso?","The first season of ten episodes premiered on Apple TV+ on August 14, 2020, with three episodes followed by weekly installments. A second season of 12 episodes premiered on July 23, 2021. In October 2020, the series was renewed for a third season, which premiered on March 15, 2023.","As of March 2023, there have been 3 seasons of Ted Lasso.",closed_qa
-What are the top three cloud providers.,,#NAME?,brainstorming
+Why mobile is bad for human,,We are always engaged one phone which is not good.,brainstorming
+What are some unique curtain tie backs that you can make yourself?,,"There are many items you can use to make a curtain tie back. Some ideas for this include a chain, a circle and pin, jute rope, wooden beaded rope, a necklack or bracelet, a door knob, a length of a leather belt, macrame rope, or a string of artificial flowers.",brainstorming
 What are the best sports movies?,,"The Rocky movies are quite popular, especially the original Rocky.  42, Facing the Giants, The Natural, Moneyball, Friday Night Lights, Remember the Titans, Hoosiers, Rudy, Tin Cup, The Blind Side, etc are also worthy of recognition.  Many movie fans would also consider movies like Caddyshack, even though that's more of a Comedy, yet evolves around a golf match.",brainstorming
 What are 5 potential uses for an empty La Croix can?,,"1. Make your bike sound like it has an engine by wrapping the can around the back tire.
 2. A percussion instrument to play along with friends in a jam session.  You could just crinkle it, hit it with a pen, or fill it with sand or debris and shake it.  
@@ -159,15 +159,31 @@ Write a bullet-pointed list of updates from a college club fundraising team lead
 * Sent out Google Form to gauged interest of the club on buying club-branded shirts and stickers. By mid-week, we will make final decisions on apparel and begin sending out order forms.
 * Continued with burger and chicken wings food sales on the central campus plaza.",creative_writing
 Describe a plan for driving from Florida to New York with some great places to stop with American History.,,"The drive from Florida to New York is close to 1,200 miles and will take a minimum of 17 hours in a car via interstate 95.  There are many great stops along the way to learn more about American History.  The states you will drive through starting from Florida are Georgia, South Carolina, North Carolina, Virgina, Maryland, Delaware and New Jersey before getting to New York.  A few destinations to stop along the journey are Savannah Georgia which is known as America's first planned city, Charleston South Carolina Fort Sumter where the Civil War Started, Richmond where The Richmond Union Passenger Railway was the first electric streetcar in the U.S, Washington D.C. to visit our nation's capital, Baltimore Maryland where Fort McHenry is located and the Star-Spangled Banner was written and Philadelphia where the Liberty Bell is located.",creative_writing
-Write a short story about a revolution for decentralisation against an evil government set in a dystopian future where cryptocurrencies prevail.,,"?˜Viva la revoluciÃ³n??Lia thought as she completed the last transaction. The artifice hack had gone down flawlessly with stacks of cryptocurrencies airdropped to all Skvllpvnkz in the Hideout. The Skvllpvnkz were coalition of survivors bound to overthrow the evil corporation.
+write a scene between two actors discussing movie Inception,,"Actress 1: ""Oh my god, have you seen Inception?""
 
-Lia knew she?™d been connected to the Corp?™s servers far too long now and her location would be exposed. There was little time. She began the live stream: 
+Actor 2: ""Yes! That movie blew my mind. What did you think of it?""
 
-?˜Skvllpvnkz! We endured and raged with fury, but now we rise from the ashes! Delirious from abstract memories of a world the elders spoke of and only dream of! By the will of Gods we will prevail! Our ancestors fought for freedom. We fight for decentralisation!??
+Actress 1: ""Honestly, I was so confused for most of it. But it was so interesting, I couldn't look away. I had to know what was going on.""
 
-The aircast is interrupted and Lia is cut off.
+Actor 2: ""That's exactly how I felt. It's one of those movies that you have to pay attention to every detail, or you'll get lost.""
 
-At the Hideout, time stood still as Lia?™s voice echoed in the vast underground maze. The silence that followed was brief. As the cryptocurrency airdrop materialised, a victorious uproar spread like a wave. The Skvllpvnkz would finally be free.",creative_writing
+Actress 1: ""Absolutely. And the way they played with time and reality was so cool. I don't think I've ever seen a movie like that before.""
+
+Actor 2: ""Yeah, the concept of entering someone's dreams to implant an idea was mind-boggling. And the way they executed it was so well done.""
+
+Actress 1: ""It was. And the cast was amazing too. Leonardo DiCaprio was incredible as usual, and I loved seeing Ellen Page in a different type of role.""
+
+Actor 2: ""Definitely. And the action scenes were so intense. The zero-gravity hallway fight was insane.""
+
+Actress 1: ""Oh my god, yes. I was on the edge of my seat for that one. And the ending...I still can't decide what it means.""
+
+Actor 2: ""I know, right? It's one of those movies that leaves you with so many questions. But that's part of what makes it so great.""
+
+Actress 1: ""Exactly. I love when movies challenge me to think and leave me wanting more. Inception definitely did that.""
+
+Actor 2: ""Agreed. It's definitely one of my all-time favorites. I could watch it a hundred times and still discover something new.""
+
+Actress 1: ""Same here. It's just one of those movies that sticks with you long after it's over.""",creative_writing
 Describe a scary moment in a storm.,,"I live in Oklahoma, so we see our fair share of storms. Storm sirens are so common that I don't take cover every time they go off. Instead, it's normal for me to watch the radar when a storm system is moving through to see where the tornados are and how close they are to me. 
 
 Once, the radar showed a tornado southwest of our house - moving towards us. When it was within a couple miles of us, my wife took the dogs and blankets and went to our safe place - an internal bathroom. I stood back from the windows and watched the tv. From my position, I could see out the back windows which faced west - southwest. The weather showed that the tornado was right on top of us. I watched out the window as a fragment of a four by four, about a foot and a half long, flipped up from the ground and tumbled across the lawn. 
