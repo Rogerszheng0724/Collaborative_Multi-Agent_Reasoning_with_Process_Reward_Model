@@ -1,0 +1,12 @@
+﻿instruction,context,ground_truth,generated_answer,nlp_bleu,nlp_meteor,nlp_rouge1,nlp_rouge2,nlp_rougeL,nlp_bert_precision,nlp_bert_recall,nlp_bert_f1
+When was the Tesla Factory in Fremont purchased by Tesla?,,In May 2010,"The Tesla Factory in Fremont, California, was purchased by Tesla in 2010.
+
+Final Answer: 2010
+",0.0132,0.2174,0.2222,0.0,0.2222,0.8259,0.8492,0.8374
+Who wrote Democracy in America?,,Alexis de Tocqueville wrote Democracy in America,"Democracy in America was written by Alexis de Tocqueville.
+Final Answer: Alexis de Tocqueville
+",0.1189,0.7454,0.5714,0.4211,0.2857,0.873,0.8965,0.8846
+Who are the pianists that are considered masters in playing Bach's music?,,Glenn Gould is one of the most famous pianists playing Bach's music with his distinct style of articulating the contrapuntal texture of Bach's music. Zhu Xiao-mei's recording of Bach's The Goldberg Variations is acclaimed as one of the best recording of this piece. American pianist Murray Perahia has also built up a repertoire of Bach's piano music that's loved by many people.,"When considering pianists who are masters of Bach, several names consistently arise. These pianists demonstrate a deep understanding of Bach's architecture, counterpoint, and spirit, while also bringing their own unique interpretations to the music.
+
+Final Answer: Glenn Gould, Rosalyn Tureck, András Schiff, Angela Hewitt, Murray Perahia, Edwin Fischer, Wilhelm Kempff, Sviatoslav Richter, Evgeni Koroliov.
+",0.0092,0.1877,0.256,0.0813,0.16,0.8172,0.8641,0.84
