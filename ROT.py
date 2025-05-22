@@ -24,7 +24,7 @@ class GeminiLLMInterface:
         effective_api_key = api_key or GEMINI_API_KEY_FROM_ENV
 
         if not effective_api_key:
-            self.logger.error("ROT.GeminiLLMInterface: API key not provided. LLM will not function.")
+            self.logger.error("ROT","ROT.GeminiLLMInterface: API key not provided. LLM will not function.")
             return
 
         try:
@@ -38,12 +38,12 @@ class GeminiLLMInterface:
             self.model = genai.GenerativeModel(model_name)
             self.logger.info(f"ROT.GeminiLLMInterface initialized with model {model_name}.")
         except Exception as e:
-            self.logger.error(f"Failed to initialize ROT Gemini GenerativeModel ({model_name}): {e}")
+            self.logger.error("ROT",f"Failed to initialize ROT Gemini GenerativeModel ({model_name}): {e}")
             self.model = None
 
     def generate(self, prompt_text, temperature=0.7): # Added temperature parameter
         if not self.model:
-            self.logger.error("ROT.GeminiLLMInterface: LLM model not initialized. Cannot generate content.")
+            self.logger.error("ROT","ROT.GeminiLLMInterface: LLM model not initialized. Cannot generate content.")
             return "LLM not initialized or API key error" # Standardized error message
         try:
             self.logger.info(f"\n--- Sending prompt to Gemini (ROT LLM) ---\n{prompt_text[:300]}...\n--- End of Gemini prompt (ROT LLM) ---")
@@ -60,21 +60,21 @@ class GeminiLLMInterface:
             if not llm_response_text and hasattr(response, 'prompt_feedback') and \
                  response.prompt_feedback.block_reason != genai.types.BlockReason.BLOCK_REASON_UNSPECIFIED: # Check block reason
                 block_reason_str = genai.types.BlockReason(response.prompt_feedback.block_reason).name
-                self.logger.warning(f"ROT.GeminiLLMInterface: Prompt blocked due to {block_reason_str}.")
+                self.logger.warning("ROT",f"ROT.GeminiLLMInterface: Prompt blocked due to {block_reason_str}.")
                 return f"LLM Error: Prompt blocked due to {block_reason_str}." # More specific error
             
             self.logger.info(f"--- Received Gemini response (ROT LLM) ---\n{llm_response_text[:300]}...\n--- End of Gemini response (ROT LLM) ---")
             return llm_response_text if llm_response_text else "LLM Error: No valid content generated." # Standardized error
 
         except Exception as e:
-            self.logger.error(f"ROT.GeminiLLMInterface: Gemini API call error (generate): {e}")
+            self.logger.error("ROT",f"ROT.GeminiLLMInterface: Gemini API call error (generate): {e}")
             return f"LLM Error: {e}" # More specific error
 
     def generate_with_simulated_score(self, prompt_text, temperature=0.7): # Added temperature
         # This method is used in ROT for the initial candidate prompt generation in PGRR. Its "simulated_score" is NOT a PRM score.
         # PRM scores will be provided by dedicated evaluation methods in the ReversalOfThought class.
         if not self.model:
-            self.logger.error("ROT.GeminiLLMInterface: LLM model not initialized. Cannot generate content and score.")
+            self.logger.error("ROT","ROT.GeminiLLMInterface: LLM model not initialized. Cannot generate content and score.")
             return "LLM not initialized or API key error", 0.0
 
         response_text = self.generate(prompt_text, temperature=temperature)
@@ -96,7 +96,7 @@ class GeminiEmbeddingInterface:
         effective_api_key = api_key or GEMINI_API_KEY_FROM_ENV
 
         if not effective_api_key:
-            self.logger.error("ROT.GeminiEmbeddingInterface: API key not provided. Embedding functionality will not work.")
+            self.logger.error("ROT","ROT.GeminiEmbeddingInterface: API key not provided. Embedding functionality will not work.")
             return
 
         try:
@@ -110,12 +110,12 @@ class GeminiEmbeddingInterface:
             self.api_key_configured_successfully = True # Assume success if no exception
             self.logger.info(f"ROT.GeminiEmbeddingInterface initialized for model {model_name}.")
         except Exception as e:
-            self.logger.error(f"Error setting API key for ROT.GeminiEmbeddingInterface: {e}")
+            self.logger.error("ROT",f"Error setting API key for ROT.GeminiEmbeddingInterface: {e}")
             self.api_key_configured_successfully = False
 
     def _get_embedding(self, text):
         if not self.api_key_configured_successfully:
-            self.logger.error("ROT.GeminiEmbeddingInterface: API key not set or configuration failed. Cannot get embedding.")
+            self.logger.error("ROT","ROT.GeminiEmbeddingInterface: API key not set or configuration failed. Cannot get embedding.")
             return None
         try:
             self.logger.info(f"ROT.GeminiEmbeddingInterface: Getting embedding for text: '{text[:50]}...'")
@@ -123,12 +123,12 @@ class GeminiEmbeddingInterface:
             result = genai.embed_content(model=self.model_name, content=text, task_type="SEMANTIC_SIMILARITY")
             return result['embedding']
         except Exception as e:
-            self.logger.error(f"ROT.GeminiEmbeddingInterface: Gemini API call error (embed_content for '{text[:50]}...'): {e}")
+            self.logger.error("ROT",f"ROT.GeminiEmbeddingInterface: Gemini API call error (embed_content for '{text[:50]}...'): {e}")
             return None
 
     def calculate_similarity(self, text1, text2):
         if not self.api_key_configured_successfully: # Check if API key was set up
-            self.logger.error("ROT.GeminiEmbeddingInterface: API key not set, cannot calculate similarity.")
+            self.logger.error("ROT","ROT.GeminiEmbeddingInterface: API key not set, cannot calculate similarity.")
             return 0.0
 
         emb1 = self._get_embedding(text1)
@@ -148,7 +148,7 @@ class GeminiEmbeddingInterface:
             similarity = np.dot(emb1_np, emb2_np) / (norm_emb1 * norm_emb2)
             return float(similarity)
         except Exception as e:
-            self.logger.error(f"ROT.GeminiEmbeddingInterface: Error calculating cosine similarity: {e}")
+            self.logger.error("ROT",f"ROT.GeminiEmbeddingInterface: Error calculating cosine similarity: {e}")
             return 0.0
 
 # --- ReversalOfThought Class ---
@@ -187,7 +187,7 @@ class ReversalOfThought:
     def _parse_llm_response_for_prm_score(self, llm_response_text):
         """ Parses PRM-style score and justification from the LLM's response. """
         if not llm_response_text or llm_response_text.startswith("LLM Error") or llm_response_text.startswith("LLM not initialized"): # Check for specific error messages
-            self.logger.warning(f"Invalid or error LLM response, cannot parse PRM score: {llm_response_text}")
+            self.logger.warning("ROT",f"Invalid or error LLM response, cannot parse PRM score: {llm_response_text}")
             return 0.0, f"PRM scoring failed: Invalid LLM response ({llm_response_text})"
 
         score_match = re.search(r"Score:\s*([0-9.]+)", llm_response_text, re.IGNORECASE)
@@ -198,13 +198,13 @@ class ReversalOfThought:
         justification = justification_match.group(1).strip() if justification_match else "No justification provided or parsing error."
 
         if not score_match: # Log if score specifically wasn't found
-            self.logger.warning(f"Could not parse PRM score from response. Raw response: '{llm_response_text}'")
+            self.logger.warning("ROT",f"Could not parse PRM score from response. Raw response: '{llm_response_text}'")
         return score, justification
 
     def _evaluate_rot_artifact_with_prm(self, artifact_content, artifact_type, main_task_description):
         """ Evaluates an intermediate artifact of ROT using the PRM evaluator. """
         if not self.prm_evaluator_llm: # Check if prm_evaluator_llm is set
-            self.logger.error("PRM evaluator LLM not set. Cannot evaluate.")
+            self.logger.error("ROT","PRM evaluator LLM not set. Cannot evaluate.")
             return 0.0, "PRM evaluator not set"
         
         prompt = self._generate_prm_style_scoring_prompt_for_rot_artifact(artifact_content, artifact_type, main_task_description)
@@ -278,7 +278,7 @@ class ReversalOfThought:
             self.logger.info(f"ROT: Warmup iteration {i+1} generated candidate prompt (Simulated Score: {response_prob_score:.3f}, PRM Score: {prm_score:.3f})")
 
         if not candidate_responses_info:
-            self.logger.error("ROT: PGRR warmup failed to generate any candidate responses.")
+            self.logger.error("ROT","ROT: PGRR warmup failed to generate any candidate responses.")
             return "PGRR Warmup Failed: No candidate responses" # Return error message
 
         self.logger.info("\n--- ROT: Executing Pairwise Preference Evaluation (based on Main Task Objective) ---")
@@ -294,7 +294,7 @@ class ReversalOfThought:
                 self.logger.info(f"ROT: Only one candidate (ID: {best_candidate['id']}), PRM Score: {best_candidate['prm_score']:.3f}, selecting directly.")
                 return best_candidate['text']
             else: # Should have been caught by the earlier check, but as a safeguard
-                self.logger.error("ROT: No candidates available even after attempting PGRR warmup.")
+                self.logger.error("ROT","ROT: No candidates available even after attempting PGRR warmup.")
                 return "PGRR Failed: No candidates after warmup"
 
 
@@ -368,7 +368,7 @@ class ReversalOfThought:
             })
             
         if not final_scores_for_candidates:
-            self.logger.error("ROT: Failed to calculate final scores. PGRR ranking failed.")
+            self.logger.error("ROT","ROT: Failed to calculate final scores. PGRR ranking failed.")
             return "PGRR Ranking Failed: No final scores" # Return error message
 
         # Select the prompt with the highest combined score
@@ -471,7 +471,7 @@ class ReversalOfThought:
         final_prompt_text_candidate = self.llm.generate(instruction_prompt, temperature=0.5) 
         
         if "LLM not initialized" in final_prompt_text_candidate or "LLM Error" in final_prompt_text_candidate: # Check for LLM errors
-            self.logger.error("ROT (CPM): LLM call failed. Cannot generate final prompt.")
+            self.logger.error("ROT","ROT (CPM): LLM call failed. Cannot generate final prompt.")
             return f"CPM Failed: LLM Error ({final_prompt_text_candidate})" # Return error message
         
         # Perform PRM evaluation on the final prompt generated by CPM
@@ -502,7 +502,7 @@ class ReversalOfThought:
         solution = self.llm.generate(full_solving_prompt, temperature=0.3) 
 
         if "LLM not initialized" in solution or "LLM Error" in solution: # Check for LLM errors
-            self.logger.error(f"ROT: Failed to solve task '{problem_input}'. Response: {solution}")
+            self.logger.error("ROT",f"ROT: Failed to solve task '{problem_input}'. Response: {solution}")
             return f"Solution generation failed: {solution}" # Return error message
         return solution.strip()
 
@@ -512,7 +512,7 @@ def run_rot_standalone_example_with_prm(api_key_for_example):
     logger_example.info("Running RoT (PRM-style) Standalone Example...")
     
     if not api_key_for_example: # Check for API key at the start
-        logger_example.error("ROT Standalone Example: API key not provided. LLM and embedder calls in the example will fail.")
+        logger_example.error("ROT","ROT","ROT Standalone Example: API key not provided. LLM and embedder calls in the example will fail.")
         # Optionally, one could still proceed to show structure, but LLM calls would fail.
 
     llm_api_rot = GeminiLLMInterface(api_key=api_key_for_example, logger=logger_example)
@@ -520,10 +520,10 @@ def run_rot_standalone_example_with_prm(api_key_for_example):
     
     # Critical checks for LLM and Embedder initialization
     if not llm_api_rot.model:
-        logger_example.error("ROT Standalone Example: LLM interface model not initialized. Aborting example.")
+        logger_example.error("ROT","ROT","ROT Standalone Example: LLM interface model not initialized. Aborting example.")
         return
     if not embedder_api.api_key_configured_successfully:
-        logger_example.error("ROT Standalone Example: Embedder interface API key not configured successfully. Aborting example.")
+        logger_example.error("ROT","ROT Standalone Example: Embedder interface API key not configured successfully. Aborting example.")
         return
 
     # The main_task_description here is the "meta-task" or "higher-level task" for the ROT system.

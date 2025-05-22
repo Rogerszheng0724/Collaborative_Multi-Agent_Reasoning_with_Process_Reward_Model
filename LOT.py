@@ -32,7 +32,7 @@ class GraphOfThoughts: # GraphOfThoughts in LOT is a base, primarily inherited a
 
     def add_thought_object(self, thought_obj): # Allows direct addition of Thought object instances
         if thought_obj.id in self.thoughts:
-            self.logger.warning(f"Thought with ID '{thought_obj.id}' already exists. Will not add again.")
+            self.logger.warning("LOT",f"Thought with ID '{thought_obj.id}' already exists. Will not add again.")
             return self.thoughts[thought_obj.id]
         self.thoughts[thought_obj.id] = thought_obj
         # Parent-child relationships should be handled by the logic that creates Thought objects
@@ -66,7 +66,7 @@ class GraphOfThoughts: # GraphOfThoughts in LOT is a base, primarily inherited a
 
     def _parse_llm_response_for_prm_score(self, llm_response_text):
         if not llm_response_text or llm_response_text.startswith("Error (LOT):") or llm_response_text.startswith("LLM not initialized") or llm_response_text.startswith("LLM Error"): # Added specific error checks for LOT
-            self.logger.warning(f"Invalid or error LLM response, cannot parse PRM score: {llm_response_text}")
+            self.logger.warning("LOT",f"Invalid or error LLM response, cannot parse PRM score: {llm_response_text}")
             return 0.0, f"PRM scoring failed: Invalid LLM response ({llm_response_text})"
 
         score_match = re.search(r"Score:\s*([0-9.]+)", llm_response_text, re.IGNORECASE)
@@ -76,13 +76,13 @@ class GraphOfThoughts: # GraphOfThoughts in LOT is a base, primarily inherited a
         justification = justification_match.group(1).strip() if justification_match else "No justification provided or parsing error."
 
         if not score_match:
-            self.logger.warning(f"Could not parse PRM score from response. Raw response: '{llm_response_text}'")
+            self.logger.warning("LOT",f"Could not parse PRM score from response. Raw response: '{llm_response_text}'")
         return score, justification
 
     def _evaluate_lot_artifact_with_prm(self, artifact_content, artifact_type, layer_conceptual_step, main_task_description):
         """ Evaluates an intermediate artifact of LOT using the PRM evaluator. """
         if not self.prm_evaluator_llm: # Check prm_evaluator_llm
-            self.logger.error("PRM evaluator LLM not set. Cannot evaluate.")
+            self.logger.error("LOT","PRM evaluator LLM not set. Cannot evaluate.")
             return 0.0, "PRM evaluator not set"
         
         prompt = self._generate_prm_style_scoring_prompt_for_lot_artifact(artifact_content, artifact_type, layer_conceptual_step, main_task_description)
@@ -100,7 +100,7 @@ class GeminiLLMInterface:
         self.model = None
         self.logger = logger if logger else DefaultLogger()
         if not api_key:
-            self.logger.error("Gemini API key is required. LOT LLM will not function.")
+            self.logger.error("LOT","Gemini API key is required. LOT LLM will not function.")
             return # Allow instance creation, but model will be None
             
         try:
@@ -109,13 +109,13 @@ class GeminiLLMInterface:
             self.model = genai.GenerativeModel(model_name)
             self.logger.info(f"Gemini LLM interface initialized with model '{model_name}'.")
         except Exception as e:
-            self.logger.error(f"Failed to initialize LOT Gemini GenerativeModel ({model_name}): {e}")
+            self.logger.error("LOT",f"Failed to initialize LOT Gemini GenerativeModel ({model_name}): {e}")
             self.model = None
 
 
     def generate(self, prompt_text, temperature=0.7): # Added temperature
         if not self.model:
-            self.logger.error("LOT.GeminiLLMInterface: LLM model not initialized. Cannot generate content.")
+            self.logger.error("LOT","LOT.GeminiLLMInterface: LLM model not initialized. Cannot generate content.")
             return "Error (LOT): LLM not initialized"
         try:
             self.logger.info(f"\n--- Sending prompt to Gemini (LOT Operation LLM) ---\n{prompt_text[:300]}...\n--- End of Gemini prompt (LOT Operation LLM) ---")
@@ -132,14 +132,14 @@ class GeminiLLMInterface:
             if not llm_response_text and hasattr(response, 'prompt_feedback') and \
                response.prompt_feedback.block_reason != genai.types.BlockReason.BLOCK_REASON_UNSPECIFIED:
                 block_reason_str = genai.types.BlockReason(response.prompt_feedback.block_reason).name
-                self.logger.warning(f"Warning (LOT): Prompt blocked due to {block_reason_str}.")
+                self.logger.warning("LOT",f"Warning (LOT): Prompt blocked due to {block_reason_str}.")
                 return f"Error (LOT): Prompt blocked due to {block_reason_str}."
 
             self.logger.info(f"--- Received Gemini response (LOT Operation LLM) ---\n{llm_response_text[:300]}...\n--- End of Gemini response (LOT Operation LLM) ---")
             return llm_response_text if llm_response_text else "Error (LOT): No content generated or issue with prompt."
 
         except Exception as e:
-            self.logger.error(f"Error calling Gemini API (LOT): {e}")
+            self.logger.error("LOT",f"Error calling Gemini API (LOT): {e}")
             return f"Error (LOT): Gemini API error - {str(e)}"
 
 
@@ -169,7 +169,7 @@ class LayerOfThoughts(GraphOfThoughts):
         # If no dedicated PRM evaluation LLM is provided, default to the same LLM as for operations
         self.prm_evaluator_llm = prm_evaluator_llm if prm_evaluator_llm else llm_interface
         if not self.prm_evaluator_llm:
-             self.logger.warning("LOT is not configured with a PRM evaluator LLM. PRM scoring functionality will be limited.")
+             self.logger.warning("LOT","LOT is not configured with a PRM evaluator LLM. PRM scoring functionality will be limited.")
 
 
     def add_layer_thought(self, conceptual_step_description):
@@ -177,7 +177,7 @@ class LayerOfThoughts(GraphOfThoughts):
         layer_thought_id = f"L{layer_index}_main"
         
         if layer_thought_id in self.thoughts: # Check if already exists
-            self.logger.warning(f"LayerThought with ID '{layer_thought_id}' already exists. Will not add again.")
+            self.logger.warning("LOT",f"LayerThought with ID '{layer_thought_id}' already exists. Will not add again.")
             return self.thoughts[layer_thought_id]
 
         # LayerThought's initial score and justification are updated after aggregation
@@ -205,8 +205,8 @@ class LayerOfThoughts(GraphOfThoughts):
 
     def generate_and_evaluate_option_thoughts_for_layer(self, layer_id, main_task_description, previous_layer_aggregated_output=None):
         if layer_id not in self.thoughts or not isinstance(self.thoughts[layer_id], LayerThought):
-            self.logger.error(f"Error: LayerThought with ID {layer_id} not found.")
-        return []
+            self.logger.error("LOT",f"Error: LayerThought with ID {layer_id} not found.")
+            return []
 
         current_layer_thought = self.thoughts[layer_id]
         
@@ -216,9 +216,13 @@ class LayerOfThoughts(GraphOfThoughts):
             previous_layer_aggregated_output,
             main_task_description
         )
+# [INFO] Added layer 27: LayerThought(id=L27_main, layer_index=27, options=0, score=0.00, content='Generate and present...')
+# [WARNING][LOT] Layer 3 failed to generate any option thoughts. May need to check criteria generation or solution generation prompts.
+# [WARNING][LOT] No OptionThoughts to aggregate in layer 27.
+# [INFO] Layer 3 aggregated output PRM score: 0.00. Justification: No option thoughts available for aggregation.
         llm_criteria_response = self.llm.generate(criteria_prompt, temperature=0.7)
         if llm_criteria_response.startswith("Error (LOT):"):
-            self.logger.error(f"Could not get criteria for layer {current_layer_thought.layer_index}: {llm_criteria_response}")
+            self.logger.error("LOT",f"Could not get criteria for layer {current_layer_thought.layer_index}: {llm_criteria_response}")
             return []
         parsed_criteria = self._parse_criteria_from_llm(llm_criteria_response)
 
@@ -235,7 +239,7 @@ class LayerOfThoughts(GraphOfThoughts):
             )
             llm_solution_response = self.llm.generate(solution_prompt, temperature=0.6)
             if llm_solution_response.startswith("Error (LOT):"):
-                self.logger.warning(f"Could not generate solution for criterion '{criterion_text}': {llm_solution_response}")
+                self.logger.warning("LOT",f"Could not generate solution for criterion '{criterion_text}': {llm_solution_response}")
                 continue
 
             solution_content = llm_solution_response.strip()
@@ -260,7 +264,7 @@ class LayerOfThoughts(GraphOfThoughts):
     def _parse_criteria_from_llm(self, llm_response_text):
         criteria = []
         if not llm_response_text or not isinstance(llm_response_text, str) or llm_response_text.startswith("Error (LOT):"):
-            self.logger.warning(f"Criteria from LLM response is empty or incorrectly formatted: {llm_response_text}")
+            self.logger.warning("LOT",f"Criteria from LLM response is empty or incorrectly formatted: {llm_response_text}")
             return [{'text': "Default criterion (due to parsing error)", 'level': 1}] # Default if parsing fail
 
         parts = llm_response_text.split(';')
@@ -276,80 +280,80 @@ class LayerOfThoughts(GraphOfThoughts):
                     level = int(match.group(1))
                     text = re.sub(r'\s*\((?:level|等級)\s*\d+\)$', '', part, flags=re.IGNORECASE).strip() # Remove level part from text
                 except ValueError:
-                    self.logger.warning(f"Could not parse level from criterion '{part}', using default level 1.")
+                    self.logger.warning("LOT",f"Could not parse level from criterion '{part}', using default level 1.")
             criteria.append({'text': text, 'level': level})
         
         if not criteria: # If no criteria after splitting
-             self.logger.warning(f"Could not parse any criteria from '{llm_response_text}', using response itself as a single criterion.")
+             self.logger.warning("LOT",f"Could not parse any criteria from '{llm_response_text}', using response itself as a single criterion.")
              return [{'text': llm_response_text.strip(), 'level': 1}]
         return criteria
         
-def aggregate_and_evaluate_option_thoughts_in_layer(self, layer_id, main_task_description, aggregation_strategy='best_prm_score'):
-    if layer_id not in self.thoughts or not isinstance(self.thoughts[layer_id], LayerThought):
-        self.logger.error(f"Error: LayerThought with ID {layer_id} not found for aggregation.")
-        return None, 0.0, "LayerThought not found"
+    def aggregate_and_evaluate_option_thoughts_in_layer(self, layer_id, main_task_description, aggregation_strategy='best_prm_score'):
+        if layer_id not in self.thoughts or not isinstance(self.thoughts[layer_id], LayerThought):
+            self.logger.error("LOT",f"Error: LayerThought with ID {layer_id} not found for aggregation.")
+            return None, 0.0, "LayerThought not found"
 
-    current_layer_thought = self.thoughts[layer_id]
-    options = current_layer_thought.option_thoughts
-    if not options:
-        self.logger.warning(
-            f"No OptionThoughts to aggregate in layer {current_layer_thought.layer_index}."
-        )
-        current_layer_thought.score = 0.0
-        current_layer_thought.prm_justification = "No option thoughts available for aggregation."
-        return (
-            f"Layer {current_layer_thought.layer_index} did not generate any options.",
-            0.0,
-            current_layer_thought.prm_justification
-        )
-
-    aggregated_content = (
-        f"Aggregated result from layer {current_layer_thought.layer_index} "
-        f"(Concept: '{current_layer_thought.content}...') "
-        f"using strategy '{aggregation_strategy}':\n"
-    )
-
-    # Sort options by level ascending, then by score descending
-    options.sort(key=lambda ot: (ot.level, -ot.score))
-
-    if aggregation_strategy == 'best_prm_score':
-        if options:
-            best_option = options[0]
-            aggregated_content += (
-                f"Best option (Criterion: '{best_option.criterion}', "
-                f"Level: {best_option.level}):\n{best_option.content}"
+        current_layer_thought = self.thoughts[layer_id]
+        options = current_layer_thought.option_thoughts
+        if not options:
+            self.logger.warning("LOT",
+                f"No OptionThoughts to aggregate in layer {current_layer_thought.layer_index}."
             )
+            current_layer_thought.score = 0.0
+            current_layer_thought.prm_justification = "No option thoughts available for aggregation."
+            return (
+                f"Layer {current_layer_thought.layer_index} did not generate any options.",
+                0.0,
+                current_layer_thought.prm_justification
+            )
+
+        aggregated_content = (
+            f"Aggregated result from layer {current_layer_thought.layer_index} "
+            f"(Concept: '{current_layer_thought.content}...') "
+            f"using strategy '{aggregation_strategy}':\n"
+        )
+
+        # Sort options by level ascending, then by score descending
+        options.sort(key=lambda ot: (ot.level, -ot.score))
+
+        if aggregation_strategy == 'best_prm_score':
+            if options:
+                best_option = options[0]
+                aggregated_content += (
+                    f"Best option (Criterion: '{best_option.criterion}', "
+                    f"Level: {best_option.level}):\n{best_option.content}"
+                )
+            else:
+                aggregated_content += "No best option to select."
+        elif aggregation_strategy in ('weighted_sum_content', 'all_content_ranked'):
+            for opt in options:
+                aggregated_content += (
+                    f"- (Criterion: '{opt.criterion}', Level: {opt.level}):\n"
+                    f"  {opt.content}\n\n"
+                )
         else:
-            aggregated_content += "No best option to select."
-    elif aggregation_strategy in ('weighted_sum_content', 'all_content_ranked'):
-        for opt in options:
-            aggregated_content += (
-                f"- (Criterion: '{opt.criterion}', Level: {opt.level}):\n"
-                f"  {opt.content}\n\n"
+            self.logger.warning("LOT",
+                f"Unknown aggregation strategy '{aggregation_strategy}', defaulting to 'best_prm_score'."
             )
-    else:
-        self.logger.warning(
-            f"Unknown aggregation strategy '{aggregation_strategy}', defaulting to 'best_prm_score'."
-        )
-        if options:
-            best_option = options[0]
-            aggregated_content += (
-                f"Best option (Criterion: '{best_option.criterion}', "
-                f"Level: {best_option.level}):\n{best_option.content}"
-            )
-        else:
-            aggregated_content += "No best option to select."
+            if options:
+                best_option = options[0]
+                aggregated_content += (
+                    f"Best option (Criterion: '{best_option.criterion}', "
+                    f"Level: {best_option.level}):\n{best_option.content}"
+                )
+            else:
+                aggregated_content += "No best option to select."
 
-    # PRM evaluation removed; maintain variable names for compatibility
-    layer_output_prm_score = None
-    layer_output_prm_justification = None
+        # PRM evaluation removed; maintain variable names for compatibility
+        layer_output_prm_score = None
+        layer_output_prm_justification = None
 
-    # Update LayerThought with placeholders
-    current_layer_thought.score = layer_output_prm_score
-    current_layer_thought.prm_justification = layer_output_prm_justification
+        # Update LayerThought with placeholders
+        current_layer_thought.score = layer_output_prm_score
+        current_layer_thought.prm_justification = layer_output_prm_justification
 
-    self.logger.info(f"Aggregated options in layer {current_layer_thought.layer_index}.")
-    return aggregated_content, layer_output_prm_score, layer_output_prm_justification
+        self.logger.info(f"Aggregated options in layer {current_layer_thought.layer_index}.")
+        return aggregated_content, layer_output_prm_score, layer_output_prm_justification
 
 
 
@@ -375,7 +379,7 @@ def aggregate_and_evaluate_option_thoughts_in_layer(self, layer_id, main_task_de
             )
             
             if not option_thoughts:
-                self.logger.warning(f"Layer {i} failed to generate any option thoughts. May need to check criteria generation or solution generation prompts.")
+                self.logger.warning("LOT",f"Layer {i} failed to generate any option thoughts. May need to check criteria generation or solution generation prompts.")
                 # Even if no options, try to aggregate (will get "no options" message), then let PRM evaluate this "empty" aggregation
             
             # Aggregate option thoughts of this layer, and perform PRM evaluation on the aggregated result
@@ -389,21 +393,21 @@ def aggregate_and_evaluate_option_thoughts_in_layer(self, layer_id, main_task_de
             # LayerThought's score and prm_justification are updated within aggregate_and_evaluate...
             
             if aggregated_output_content is None: # Theoretically aggregate... should always return something unless layer_id is wrong
-                self.logger.error(f"Serious error during aggregation of layer {i}. Stopping pipeline.")
+                self.logger.error("LOT",f"Serious error during aggregation of layer {i}. Stopping pipeline.")
                 final_pipeline_output = previous_layer_output_content # Use previous layer's output as final result
                 break 
             
             self.logger.info(f"Layer {i} aggregated output PRM score: {layer_prm_score:.2f}. Justification: {layer_prm_justification}")
 
             # if layer_prm_score < min_layer_prm_score_threshold:
-            #     self.logger.warning(f"Layer {i}'s aggregated output PRM score ({layer_prm_score:.2f}) is below threshold ({min_layer_prm_score_threshold}).")
+            #     self.logger.warning("LOT",f"Layer {i}'s aggregated output PRM score ({layer_prm_score:.2f}) is below threshold ({min_layer_prm_score_threshold}).")
                 # More complex logic could be implemented here, e.g.:
                 # 1. Try different aggregation strategies
                 # 2. Regenerate option thoughts for this layer (perhaps adjusting prompts or temperature)
                 # 3. Backtrack to a previous layer
                 # 4. Terminate pipeline early
                 # For simplicity, here we just log a warning but continue (or could choose to terminate)
-                # self.logger.warning(f"Pipeline may not achieve optimal results. Consider termination or remedial actions. Continuing for now...")
+                # self.logger.warning("LOT",f"Pipeline may not achieve optimal results. Consider termination or remedial actions. Continuing for now...")
                 # If deciding to terminate:
                 # final_pipeline_output = previous_layer_output_content # Or aggregated_output_content, depending on strategy
                 # break
@@ -478,7 +482,7 @@ def run_lot_example_workflow_with_prm(api_key):
     logger_example.info(f"\n--- LoT Pipeline's Final Marketing Plan (or last successful layer output) ---")
     if final_marketing_plan:
         logger_example.info(final_marketing_plan)
-        # Print the PRM score and justification of the last layer
+        # Print the PRM score and justification of the last layerlogger_example.error
         if lot_system.layers:
             last_layer = lot_system.layers[-1]
             logger_example.info(f"\nPRM Evaluation of the Final Layer (L{last_layer.layer_index}):")
