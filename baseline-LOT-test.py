@@ -371,4 +371,4 @@ def run_lot_evaluation(input_csv, output_csv, num_samples=None):
 if __name__ == "__main__":
     input_path = r"D:\data_science\final_project\MAS-PRM\dataset\dolly_gsm8k_MMLU1.csv"
     output_path = r"D:\data_science\final_project\MAS-PRM\evaluation\baseline-Lot_eval_output.csv"
-    run_lot_evaluation(input_path, output_path, num_samples=3)
+    run_lot_evaluation(input_path, output_path, num_samples=None)

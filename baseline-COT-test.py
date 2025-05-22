@@ -361,4 +361,4 @@ if __name__ == "__main__":
     # Paths can be customized or passed as arguments
     input_path = r"D:\data_science\final_project\MAS-PRM\dataset\dolly_gsm8k_MMLU1.csv"
     output_path = r"D:\data_science\final_project\MAS-PRM\evaluation\baseline-Cot_eval_output.csv"
-    run_cot_evaluation(input_path, output_path, num_samples=3)
+    run_cot_evaluation(input_path, output_path, num_samples=None)
