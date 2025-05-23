@@ -14,11 +14,13 @@ class Thought:
 
     def __repr__(self):
         # Replace newlines with spaces for single-line display
-        display_content = self.content[:30].replace('\n', ' ')
+        display_content = self.content.replace('\n', ' ')
         return f"Thought(id={self.id}, score={self.score:.2f}, generated_by_llm={self.generated_by_llm}, content='{display_content}...')"
 
 class GeminiLLM:
-    def __init__(self, api_key, model_name="gemini-1.5-flash-latest"): # Updated model name for common usage
+    # def __init__(self, api_key, model_name="gemini-1.5-flash-latest"): # 更新模型名稱以符合常見用法
+    # def __init__(self, api_key, model_name="gemini-2.0-flash"): # 更新模型名稱以符合常見用法
+    def __init__(self, api_key, model_name="gemini-2.0-flash-lite"): # 更新模型名稱以符合常見用法
         """
         Initializes the Gemini LLM interface.
         Args:
@@ -41,7 +43,7 @@ class GeminiLLM:
         Returns:
             str: The LLM's response text.
         """
-        print(f"\n--- Sending prompt to Gemini ---\n{prompt[:500]}...\n--- End of Gemini prompt ---") # Shorten printed prompt length
+        print(f"\n--- Sending prompt to Gemini ---\n{prompt}...\n--- End of Gemini prompt ---") # Shorten printed prompt length
         try:
             effective_safety_settings = safety_settings or [
                 {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
@@ -69,7 +71,7 @@ class GeminiLLM:
                 print(f"Warning: Prompt blocked due to {block_reason_str}. Safety ratings: {response.prompt_feedback.safety_ratings}")
                 return f"Error: Prompt blocked due to {block_reason_str}."
 
-            print(f"--- Received Gemini response ---\n{llm_response_text[:500]}...\n--- End of Gemini response ---") # Shorten printed response length
+            print(f"--- Received Gemini response ---\n{llm_response_text}...\n--- End of Gemini response ---") # Shorten printed response length
             return llm_response_text if llm_response_text else "Error: No content generated or issue with the prompt."
         except Exception as e:
             print(f"Error during Gemini API call: {e}")
@@ -81,7 +83,8 @@ class GraphOfThoughts:
         self.thoughts = {} # Stores all thoughts by id
         self.next_thought_id = 0
         self.llm = llm_interface
-        self.logger = logger if logger else self._get_default_logger() # Use passed logger or default logger
+        self.next_id = 0
+        self.logger = logger or self._default_logger()
 
     def _get_default_logger(self):
         # A simple default logger if none is provided externally
@@ -90,24 +93,89 @@ class GraphOfThoughts:
             def warning(self, message): print(f"[GOT WARNING] {message}")
             def error(self, message): print(f"[GOT ERROR] {message}")
         return PrintLogger()
+    def _default_logger(self):
+        class L:
+            def info(s, m): print(f"[GOT INFO] {m}")
+            def warning(s, m): print(f"[GOT WARN] {m}")
+            def error(s, m): print(f"[GOT ERR] {m}")
+        return L()
+
+    def _new_id(self):
+        i = self.next_id
+        self.next_id += 1
+        return i
+
+    def add_thought(self, content, parent_ids=None):
+        tid = self._new_id()
+        t = Thought(content, tid)
+        self.thoughts[tid] = t
+        if parent_ids:
+            for pid in parent_ids:
+                if pid in self.thoughts:
+                    self.thoughts[pid].children.append(t)
+                    t.parents.append(self.thoughts[pid])
+        self.logger.info(f"Added {t}")
+        return t
+
+    def _prompt_new(self, task, existing=None, n=1):
+        p = f"Task: {task}\n"
+        if existing:
+            for i,c in enumerate(existing): p += f"Prev{i+1}: {c}\n"
+        p += f"Generate {n} new thought(s) to advance the task."
+        return p
 
     def _get_new_id(self):
         new_id = self.next_thought_id
         self.next_thought_id += 1
         return new_id
 
-    def add_thought(self, content, parent_ids=None, score=0.0, generated_by_llm=True, prm_justification="Not yet evaluated"):
-        new_id = self._get_new_id()
-        thought = Thought(content, new_id, score, generated_by_llm, prm_justification)
-        self.thoughts[new_id] = thought
-        if parent_ids:
-            for pid in parent_ids:
-                if pid in self.thoughts:
-                    self.thoughts[pid].children.append(thought)
-                    thought.parents.append(self.thoughts[pid])
-        self.logger.info(f"Added thought: {thought}")
-        return thought
+    # def add_thought(self, content, parent_ids=None, score=0.0, generated_by_llm=True, prm_justification="Not yet evaluated"):
+    #     new_id = self._get_new_id()
+    #     thought = Thought(content, new_id, score, generated_by_llm, prm_justification)
+    #     self.thoughts[new_id] = thought
+    #     if parent_ids:
+    #         for pid in parent_ids:
+    #             if pid in self.thoughts:
+    #                 self.thoughts[pid].children.append(thought)
+    #                 thought.parents.append(self.thoughts[pid])
+    #     self.logger.info(f"Added thought: {thought}")
+    #     return thought
+    def generate_thoughts(self, task_description, num=1, from_ids=None):
+        base = [self.thoughts[i].content for i in (from_ids or []) if i in self.thoughts]
+        prompt = self._prompt_new(task_description, base, num)
+        resp = self.llm.generate(prompt)
+        parts = re.split(r'\n\s*(?=\d+\.)', resp) if num>1 else [resp]
+        thoughts = []
+        for txt in parts[:num]:
+            clean = re.sub(r'^\s*(\d+\.)','',txt).strip()
+            if clean:
+                thoughts.append(self.add_thought(clean, parent_ids=from_ids))
+        return thoughts
 
+    def refine_thought(self, thought_id, task_description, instruction):
+        if thought_id not in self.thoughts:
+            self.logger.error(f"Refine: id {thought_id} missing")
+            return None
+        orig = self.thoughts[thought_id].content
+        prompt = f"Task: {task_description}\nOriginal: {orig}\nInstruction: {instruction}\nRefine the thought." 
+        resp = self.llm.generate(prompt)
+        return self.add_thought(resp, parent_ids=[thought_id])
+
+    def aggregate_thoughts(self, ids, task_description):
+        if not ids or any(i not in self.thoughts for i in ids):
+            self.logger.error("GOT","Aggregate: invalid ids")
+            return None
+        contents = [self.thoughts[i].content for i in ids]
+        prompt = f"Task: {task_description}\nCombine:\n" + "\n".join(contents)
+        resp = self.llm.generate(prompt)
+        return self.add_thought(resp, parent_ids=ids)
+    def print_graph(self):
+        self.logger.info("Current Graph:")
+        for tid, t in sorted(self.thoughts.items()):
+            cnt = t.content[:60].replace('\n',' ')
+            pids = [p.id for p in t.parents]
+            cids = [c.id for c in t.children]
+            self.logger.info(f"ID {tid}: {cnt} | parents={pids} children={cids}")
     # --- Prompter Module ---
     def _generate_prompt_for_new_thought(self, task_description, existing_thoughts_content=None, num_new_thoughts=1):
         prompt = f"Main task: {task_description}\n"
@@ -124,8 +192,8 @@ class GraphOfThoughts:
         prompt = f"Main task: {task_description}\n"
         prompt += "Please aggregate the following distinct thoughts into a single, more comprehensive and refined thought. Identify the core ideas and synthesize them into a coherent summary or an improved solution to better accomplish the main task:\n"
         for i, content in enumerate(thoughts_to_aggregate_content):
-            prompt += f"Thought to aggregate {i+1}: {content}\n"
-        prompt += "\nCombined and aggregated thought (aimed at advancing the main task):"
+            prompt += f"待聚合思維 {i+1}：{content}\n"
+        prompt += "\n合併與聚合後的思維(旨在推進主要任務)，並解決問題和給出答案："
         return prompt
 
     def _generate_prompt_for_refinement(self, thought_content, task_description, refinement_instruction):
@@ -225,7 +293,7 @@ class GraphOfThoughts:
         prompt = self._generate_prompt_for_new_thought(task_description, base_content_for_prompt, num_new_thoughts=num_thoughts)
         llm_response = self.llm.generate(prompt)
         parsed_contents = self._parse_llm_response_for_new_thoughts(llm_response, num_thoughts)
-
+        
         for content in parsed_contents:
             if not content or content.startswith("Error:"): # Check for empty or error content
                 self.logger.warning(f"Skipping thought generation due to error or empty content: '{content}'")
@@ -248,7 +316,7 @@ class GraphOfThoughts:
         Aggregates thoughts and performs PRM-style scoring on the new aggregated thought.
         """
         if not thought_ids_to_aggregate or not all(tid in self.thoughts for tid in thought_ids_to_aggregate):
-            self.logger.error("One or more thought IDs for aggregation not found or list is empty.")
+            self.logger.error("GOT","One or more thought IDs for aggregation not found or list is empty.")
             return None
 
         contents = [self.thoughts[tid].content for tid in thought_ids_to_aggregate]
@@ -256,7 +324,7 @@ class GraphOfThoughts:
         llm_response = self.llm.generate(prompt)
 
         if not llm_response or llm_response.startswith("Error:"): # Check for empty or error response
-            self.logger.error(f"Aggregation failed due to error or empty response: '{llm_response}'")
+            self.logger.error("GOT",f"Aggregation failed due to error or empty response: '{llm_response}'")
             return None
         
         aggregated_content = llm_response.strip()
@@ -270,13 +338,33 @@ class GraphOfThoughts:
         self.logger.info(f"Aggregated thought {aggregated_thought_obj.id} evaluated - PRM Score: {prm_score:.2f}, Justification: {prm_justification}")
         
         return aggregated_thought_obj
+    # def aggregate_thoughts(self, thought_ids_to_aggregate, task_description):
+        """
+        聚合思維，並對聚合後的新思維進行 PRM 風格評分。
+        """
+        if not thought_ids_to_aggregate or not all(tid in self.thoughts for tid in thought_ids_to_aggregate):
+            self.logger.error("GOT","一個或多個用於聚合的思維 ID 未找到或列表為空。")
+            return None
+
+        contents = [self.thoughts[tid].content for tid in thought_ids_to_aggregate]
+        prompt = self._generate_prompt_for_aggregation(contents, task_description)
+        llm_response = self.llm.generate(prompt)
+
+        if not llm_response or llm_response.startswith("錯誤："):
+            self.logger.error("GOT",f"聚合失敗，原因：錯誤或空回應：'{llm_response}'")
+            return None
+        
+        aggregated_content = llm_response.strip()
+        # aggregated_thought_obj = self.add_thought(aggregated_content, parent_ids=thought_ids_to_aggregate, generated_by_llm=True)
+        aggregated_thought_obj = aggregated_content
+        return aggregated_thought_obj
 
     def refine_and_evaluate_thought(self, thought_id, task_description, refinement_instruction="Improve clarity and detail, making it closer to the main task objective."):
         """
         Refines a thought and performs PRM-style scoring on the new refined thought.
         """
         if thought_id not in self.thoughts:
-            self.logger.error(f"Error: Thought ID {thought_id} for refinement not found.")
+            self.logger.error("GOT",f"Error: Thought ID {thought_id} for refinement not found.")
             return None
 
         content_to_refine = self.thoughts[thought_id].content
@@ -284,7 +372,7 @@ class GraphOfThoughts:
         llm_response = self.llm.generate(prompt)
 
         if not llm_response or llm_response.startswith("Error:"): # Check for empty or error response
-            self.logger.error(f"Refinement failed due to error or empty response: '{llm_response}'")
+            self.logger.error("GOT",f"Refinement failed due to error or empty response: '{llm_response}'")
             return None
         
         refined_content = llm_response.strip()
@@ -305,7 +393,7 @@ class GraphOfThoughts:
         The core of this method is _generate_prm_style_scoring_prompt.
         """
         if thought_id not in self.thoughts:
-            self.logger.error(f"Error: Thought ID {thought_id} for PRM evaluation not found.")
+            self.logger.error("GOT",f"Error: Thought ID {thought_id} for PRM evaluation not found.")
             return 0.0, "Thought not found"
 
         thought_content = self.thoughts[thought_id].content
@@ -332,22 +420,22 @@ class GraphOfThoughts:
     def get_thought(self, thought_id):
         return self.thoughts.get(thought_id)
 
-    def print_graph(self):
-        self.logger.info("\n--- Current Thought Graph ---")
-        if not self.thoughts:
-            self.logger.info("Thought graph is empty.")
-            return
-        for thought_id in sorted(self.thoughts.keys()): # Iterate in sorted order for consistent output
-            thought = self.thoughts[thought_id]
-            display_content = thought.content[:100].replace('\n', ' ').strip() # Limit length and remove newlines for display
-            self.logger.info(f"\nThought ID: {thought.id} (PRM Score: {thought.score:.2f}, LLM Generated: {thought.generated_by_llm})")
-            self.logger.info(f"  Content: '{display_content}...'")
-            self.logger.info(f"  PRM Justification: {thought.prm_justification}")
-            parent_ids = [p.id for p in thought.parents]
-            children_ids = [c.id for c in thought.children]
-            self.logger.info(f"  Parent Thought IDs: {parent_ids if parent_ids else 'None'}")
-            self.logger.info(f"  Child Thought IDs: {children_ids if children_ids else 'None'}")
-        self.logger.info("--- End of Thought Graph ---")
+    # def print_graph(self):
+    #     self.logger.info("\n--- Current Thought Graph ---")
+    #     if not self.thoughts:
+    #         self.logger.info("Thought graph is empty.")
+    #         return
+    #     for thought_id in sorted(self.thoughts.keys()): # Iterate in sorted order for consistent output
+    #         thought = self.thoughts[thought_id]
+    #         display_content = thought.content[:100].replace('\n', ' ').strip() # Limit length and remove newlines for display
+    #         self.logger.info(f"\nThought ID: {thought.id} (PRM Score: {thought.score:.2f}, LLM Generated: {thought.generated_by_llm})")
+    #         self.logger.info(f"  Content: '{display_content}...'")
+    #         self.logger.info(f"  PRM Justification: {thought.prm_justification}")
+    #         parent_ids = [p.id for p in thought.parents]
+    #         children_ids = [c.id for c in thought.children]
+    #         self.logger.info(f"  Parent Thought IDs: {parent_ids if parent_ids else 'None'}")
+    #         self.logger.info(f"  Child Thought IDs: {children_ids if children_ids else 'None'}")
+    #     self.logger.info("--- End of Thought Graph ---")
 
 # --- Encapsulate example usage into a function ---
 def run_got_example_workflow_with_prm_scoring(api_key):
