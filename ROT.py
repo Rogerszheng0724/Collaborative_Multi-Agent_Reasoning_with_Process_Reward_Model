@@ -60,7 +60,7 @@ class GeminiLLMInterface:
             if not llm_response_text and hasattr(response, 'prompt_feedback') and \
                  response.prompt_feedback.block_reason != genai.types.BlockReason.BLOCK_REASON_UNSPECIFIED: # Check block reason
                 block_reason_str = genai.types.BlockReason(response.prompt_feedback.block_reason).name
-                self.logger.warning(f"ROT.GeminiLLMInterface: Prompt blocked due to {block_reason_str}.")
+                self.logger.warning("ROT",f"ROT.GeminiLLMInterface: Prompt blocked due to {block_reason_str}.")
                 return f"LLM Error: Prompt blocked due to {block_reason_str}." # More specific error
             
             self.logger.info(f"--- Received Gemini response (ROT LLM) ---\n{llm_response_text[:300]}...\n--- End of Gemini response (ROT LLM) ---")
@@ -187,7 +187,7 @@ class ReversalOfThought:
     def _parse_llm_response_for_prm_score(self, llm_response_text):
         """ Parses PRM-style score and justification from the LLM's response. """
         if not llm_response_text or llm_response_text.startswith("LLM Error") or llm_response_text.startswith("LLM not initialized"): # Check for specific error messages
-            self.logger.warning(f"Invalid or error LLM response, cannot parse PRM score: {llm_response_text}")
+            self.logger.warning("ROT",f"Invalid or error LLM response, cannot parse PRM score: {llm_response_text}")
             return 0.0, f"PRM scoring failed: Invalid LLM response ({llm_response_text})"
 
         score_match = re.search(r"Score:\s*([0-9.]+)", llm_response_text, re.IGNORECASE)
@@ -198,7 +198,7 @@ class ReversalOfThought:
         justification = justification_match.group(1).strip() if justification_match else "No justification provided or parsing error."
 
         if not score_match: # Log if score specifically wasn't found
-            self.logger.warning(f"Could not parse PRM score from response. Raw response: '{llm_response_text}'")
+            self.logger.warning("ROT",f"Could not parse PRM score from response. Raw response: '{llm_response_text}'")
         return score, justification
 
     def _evaluate_rot_artifact_with_prm(self, artifact_content, artifact_type, main_task_description):

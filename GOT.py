@@ -154,7 +154,7 @@ class GraphOfThoughts:
 
     def refine_thought(self, thought_id, task_description, instruction):
         if thought_id not in self.thoughts:
-            self.logger.error(f"Refine: id {thought_id} missing")
+            self.logger.error("GOT",f"Refine: id {thought_id} missing")
             return None
         orig = self.thoughts[thought_id].content
         prompt = f"Task: {task_description}\nOriginal: {orig}\nInstruction: {instruction}\nRefine the thought." 
@@ -226,7 +226,7 @@ class GraphOfThoughts:
     # --- Parser Module ---
     def _parse_llm_response_for_new_thoughts(self, llm_response_text, num_expected_thoughts=1):
         if not llm_response_text or llm_response_text.startswith("Error:"):
-            self.logger.warning(f"Invalid or error LLM response, cannot parse new thoughts: {llm_response_text}")
+            self.logger.warning("GOT",f"Invalid or error LLM response, cannot parse new thoughts: {llm_response_text}")
             return []
 
         if num_expected_thoughts == 1:
@@ -257,7 +257,7 @@ class GraphOfThoughts:
         Parses PRM-style score and justification from the LLM's response.
         """
         if not llm_response_text or llm_response_text.startswith("Error:"):
-            self.logger.warning(f"Invalid or error LLM response, cannot parse PRM score: {llm_response_text}")
+            self.logger.warning("GOT",f"Invalid or error LLM response, cannot parse PRM score: {llm_response_text}")
             return 0.0, f"PRM scoring failed: Invalid LLM response ({llm_response_text})"
 
         score_match = re.search(r"Score:\s*([0-9.]+)", llm_response_text, re.IGNORECASE)
@@ -268,7 +268,7 @@ class GraphOfThoughts:
         justification = justification_match.group(1).strip() if justification_match else "No justification provided or parsing error."
 
         if not score_match: # Log if score specifically wasn't found
-            self.logger.warning(f"Could not parse PRM score from response. Raw response: '{llm_response_text}'")
+            self.logger.warning("GOT",f"Could not parse PRM score from response. Raw response: '{llm_response_text}'")
         return score, justification
 
     # --- Controller and Graph Operations ---
@@ -286,7 +286,7 @@ class GraphOfThoughts:
                 if tid in self.thoughts:
                     base_content_for_prompt.append(self.thoughts[tid].content)
                 else:
-                    self.logger.warning(f"When generating new thoughts, from_thought_id {tid} not found.")
+                    self.logger.warning("GOT",f"When generating new thoughts, from_thought_id {tid} not found.")
         elif initial_content_list: # If not from existing thoughts, but from initial content
              base_content_for_prompt.extend(initial_content_list)
 
@@ -296,7 +296,7 @@ class GraphOfThoughts:
         
         for content in parsed_contents:
             if not content or content.startswith("Error:"): # Check for empty or error content
-                self.logger.warning(f"Skipping thought generation due to error or empty content: '{content}'")
+                self.logger.warning("GOT",f"Skipping thought generation due to error or empty content: '{content}'")
                 continue
             
             # Add thought without immediate scoring, create object first
