@@ -574,39 +574,69 @@ class MASOrchestrator:
         return prm_score, prm_justification, "ImplicitPRM_LLMEvaluator"
 
     def ROT_phase(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3,proactive_delay_between_stages=15):
+        # 為返回值提供明確的初始/預設值
+        rot_solution = f"Default ROT solution due to error or skipped ROT processing for: {initial_task_description[:50]}..."
+        refined_task_prompt_for_core_logic = initial_task_description # 這個已經有初始值了，很好
+
         if hasattr(self.rot_system, 'cognitive_preference_manager') and not isinstance(self.rot_system, DummyReversalOfThought):
-        # if hasattr(self.rot_system, 'cognitive_preference_manager') :
             self.logger.info("--- ROT Phase ---")
-            refined_task_prompt_for_core_logic = initial_task_description
             try:
                 pgrr_output = self.rot_system.preference_guided_reverse_reasoning_warmup(
                     demonstrations=rot_demonstrations if rot_demonstrations else [("Example input", "Example output")],
-                    main_task_description_for_prm=initial_task_description,
+                    main_task_description_for_prm=initial_task_description, # 將在這裡移除 PRM
                     warm_iterations=1
                 )
-                print("pgrr_output",pgrr_output)
+                print("pgrr_output", pgrr_output)
+
+                current_prompt_for_solving = initial_task_description # 預設使用初始任務描述
+
                 if pgrr_output and "dummy" not in str(pgrr_output).lower() and "error" not in str(pgrr_output).lower():
-                    cpm_output = self.rot_system.cognitive_preference_manager(
-                        original_task_prompt_text=initial_task_description,
-                        llm_taste_prompt_text=pgrr_output,
-                        main_task_description_for_prm=initial_task_description
-                    )
-                if cpm_output and "dummy" not in str(cpm_output).lower() and "error" not in str(cpm_output).lower():
-                    refined_task_prompt_for_core_logic = cpm_output
-                else:
-                    self.logger.warning("MASOrchestrator", "ROT CPM returned dummy or error, using PGRR output or initial task description.")
+                    # 即使 pgrr_output 有效，我們也可能需要決定是否調用 cpm
+                    # 為了移除 PRM，這裡我們假設 cpm 的主要作用是基於 PRM 進行優化，所以我們可能簡化或跳過它
+                    # 或者，如果 cpm 還有其他非 PRM 的邏輯，則保留調用但確保其健壯性
+                    # 為了簡化，我們先假設直接使用 pgrr_output (如果有效) 或 initial_task_description
+                    # 以下 cpm_output 相關邏輯需要調整或移除
+                    cpm_output_internal = None # 初始化 cpm_output_internal
+                    try: # 為 cpm_output 的訪問添加保護
+                        cpm_output_internal = self.rot_system.cognitive_preference_manager(
+                            original_task_prompt_text=initial_task_description,
+                            llm_taste_prompt_text=pgrr_output,
+                            main_task_description_for_prm=initial_task_description # 將在這裡移除 PRM
+                        )
+                    except Exception as cpm_exc:
+                        self.logger.warning("MASOrchestrator", f"ROT CPM call failed: {cpm_exc}. Will use pgrr_output or initial task description.")
+
+                    if cpm_output_internal and "dummy" not in str(cpm_output_internal).lower() and "error" not in str(cpm_output_internal).lower():
+                        refined_task_prompt_for_core_logic = cpm_output_internal
+                        current_prompt_for_solving = cpm_output_internal
+                    elif pgrr_output and "dummy" not in str(pgrr_output).lower() and "error" not in str(pgrr_output).lower(): # 如果 CPM 失敗但 PGRR 成功
+                        refined_task_prompt_for_core_logic = pgrr_output # 可以考慮使用 pgrr 的輸出作為精煉提示
+                        current_prompt_for_solving = pgrr_output
+                    else: # 如果兩者都無效
+                        self.logger.warning("MASOrchestrator", "ROT PGRR and CPM did not yield a usable prompt, using initial task description for core logic.")
+                        # refined_task_prompt_for_core_logic 和 current_prompt_for_solving 保持為 initial_task_description
+                else: # pgrr_output 無效
+                     self.logger.warning("MASOrchestrator", "ROT PGRR returned dummy or error, using initial task description for core logic.")
+                     # refined_task_prompt_for_core_logic 和 current_prompt_for_solving 保持為 initial_task_description
+
                 rot_solution = self.rot_system.solve_task_with_final_prompt(
-                    str(refined_task_prompt_for_core_logic),
-                    initial_task_description  
+                    str(current_prompt_for_solving), # 使用 current_prompt_for_solving
+                    initial_task_description
                 )
-                        
+
                 self.logger.info(f"ROT Phase refined task prompt: {refined_task_prompt_for_core_logic[:100]}...")
                 self.logger.info(f"ROT Phase output : {rot_solution[:100]}...")
                 self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after ROT phase.")
                 time.sleep(proactive_delay_between_stages)
-            except Exception as e_rot:
-                self.logger.warning("MASOrchestrator", f"ROT phase execution error: {e_rot}. Using original task description for core logic.")
-        return rot_solution,refined_task_prompt_for_core_logic
+            except Exception as e_rot: # 捕獲 ROT 流程中的任何異常
+                self.logger.warning("MASOrchestrator", f"ROT phase execution error: {e_rot}. Using default rot_solution and initial task description for core logic.")
+                # refined_task_prompt_for_core_logic 已經是 initial_task_description
+                # rot_solution 已經有了預設值
+        else: # 如果 ROT 系統不符合條件 (例如是 Dummy)
+            self.logger.info("--- ROT Phase Skipped (system not suitable or is Dummy) ---")
+            # rot_solution 和 refined_task_prompt_for_core_logic 使用的是函數開頭的預設值
+
+        return rot_solution, refined_task_prompt_for_core_logic
 
     def GOT_phase(self, initial_task_description, rot_demonstrations=None, problem_instance_for_rot_final_solve=None, num_debate_rounds=4, num_prm_iterations=3, proactive_delay_between_stages=15):
         self.logger.info("--- GOT Phase Start ---")
@@ -726,7 +756,7 @@ class MASOrchestrator:
 
         # Save transcript CSV
         df = pd.DataFrame(rows, columns=["Round", "Speaker", "Utterance"])
-        df.to_csv(f"debate_transcripts\\part1\\debate_transcript_q{index}_r0.csv", index=False, encoding="utf-8-sig")
+        df.to_csv(f"C:\\Users\\user\\Documents\\GitHub\\MAS-PRM\\debate_transcripts\\part4\\debate_transcript_q{index}_r0.csv", index=False, encoding="utf-8-sig")
         print("✅ 已輸出 debate_transcript.csv，包含輪次、發言者與內容，可在 Excel 中直接瀏覽。")
 
         self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after MAS Debate phase.")
@@ -1054,8 +1084,8 @@ def main():
     logger.section_start("Main Evaluation Flow")
 
     global IMPORTS_SUCCESSFUL, GEMINI_API_KEY, torch 
-    GOOGLE_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
-    GEMINI_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
+    # GOOGLE_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
+    # GEMINI_API_KEY = 'AIzaSyD5claU-RYhHoZp9-NDiwywZTjPbzf6iUo'
     print('gemini_api_key',GEMINI_API_KEY)
     try:
         import torch as pytorch_module 
@@ -1078,7 +1108,7 @@ def main():
     elif isinstance(evaluation_llm_interface, BaseDummyLLM):
          logger.warning("main", "Evaluation LLM (from orchestrator.synthesis_llm) is BaseDummyLLM. Evaluation results will be placeholders.")
 
-    csv_file_path = "dataset\\All_of_dataset_part1.csv" 
+    csv_file_path = r"C:\Users\user\Documents\GitHub\MAS-PRM\dataset\All_of_dataset_part4.csv" 
     # csv_file_path = "data.csv"
     logger.info(f"Attempting to load CSV data from: {csv_file_path}")
 
@@ -1228,7 +1258,7 @@ def main():
         logger.info("No items were processed.")
     else:
         results_df = pd.DataFrame(all_results)
-        output_excel_filename = "result\\part1\\evaluation_results_dolly_gsm8k.xlsx" 
+        output_excel_filename = "C:\\Users\\user\\Documents\\GitHub\\MAS-PRM\\result\\part4\\evaluation_results_dolly_gsm8k.xlsx" 
         try:
             results_df.to_excel(output_excel_filename, index=False, engine='openpyxl')
             logger.info(f"Detailed evaluation results saved to: {output_excel_filename}")
@@ -1274,6 +1304,6 @@ if __name__ == "__main__":
 
     import requests
     # ✅ 程式結束時呼叫這行
-    webhook_url = "https://discord.com/api/webhooks/1374078975202295929/n-YZFYepU_L7Ar3JzjxGVAxd1OYiNoTsFumMNcJI-idlldxPcPDJDc3zZ5ckCkQnYyD2"
+    webhook_url = "https://discord.com/api/webhooks/1375009926535057519/3fjUWTbtehoHwk30iNoqrvcETussPnDeD7cvQ6Fe2z0vWQEtRpkUh76pFeqgBxDG6WQa"
     send_discord_notification("✅ 程式完成，快來看結果！", webhook_url)
 

@@ -397,7 +397,10 @@ class LayerOfThoughts(GraphOfThoughts):
                 final_pipeline_output = previous_layer_output_content # Use previous layer's output as final result
                 break 
             
-            self.logger.info(f"Layer {i} aggregated output PRM score: {layer_prm_score:.2f}. Justification: {layer_prm_justification}")
+            if layer_prm_score is not None:
+                self.logger.info(f"Layer {i} aggregated output PRM score: {layer_prm_score:.2f}. Justification: {layer_prm_justification}")
+            else:
+                self.logger.info(f"Layer {i} aggregated output PRM score: N/A (PRM not run or failed). Justification: {layer_prm_justification}")
 
             # if layer_prm_score < min_layer_prm_score_threshold:
             #     self.logger.warning("LOT",f"Layer {i}'s aggregated output PRM score ({layer_prm_score:.2f}) is below threshold ({min_layer_prm_score_threshold}).")
