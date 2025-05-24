@@ -15,6 +15,7 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 from nltk.tokenize import word_tokenize
 import nltk
+from pandas import ExcelWriter  # 請在檔案最上方也加上 import
 
 # ===== Setup logging =====
 logging.basicConfig(
@@ -365,10 +366,15 @@ def run_lot_evaluation(input_csv, output_csv, num_samples=None):
             'receval_assessment_thoughtflow_incl_prm': rec,
             **met
         })
-    pd.DataFrame(results).to_csv(output_csv, index=False, encoding='utf-8-sig')
-    logger.info(f"Evaluation complete. Results saved to: {output_csv}")
+    # pd.DataFrame(results).to_csv(output_csv, index=False, encoding='utf-8-sig')
+    df_output = pd.DataFrame(results)
+    # 儲存為 Excel
+    output_excel_path = os.path.splitext(output_csv)[0] + ".xlsx"
+    with ExcelWriter(output_excel_path, engine='openpyxl') as writer:
+        df_output.to_excel(writer, sheet_name="GoT_Eval", index=False)
+    logger.info(f"✅ Evaluation complete. Results saved to: {output_excel_path}")
 
 if __name__ == "__main__":
     input_path = r"D:\data_science\final_project\MAS-PRM\dataset\All_of_dataset1.csv"
-    output_path = r"D:\data_science\final_project\MAS-PRM\evaluation_v2\baseline-Lot_eval_output.csv"
+    output_path = r"D:\data_science\final_project\MAS-PRM\evaluation_v2\baseline-Lot_eval_output.xlsx"
     run_lot_evaluation(input_path, output_path, num_samples=None)

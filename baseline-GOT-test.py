@@ -15,6 +15,7 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 from nltk.tokenize import word_tokenize
 import nltk
+from pandas import ExcelWriter  # 請在檔案最上方也加上 import
 
 # ===== Setup logging =====
 logging.basicConfig(
@@ -363,7 +364,14 @@ def run_got_evaluation(input_csv, output_csv, num_samples=None):
         # Extract the final answer and the thoughtflow summary from the GoT output
         # The final answer is expected to be after "Final Answer:"
         final_answer_match = re.search(r"Final Answer:\s*(.*)", gen_full_got_process, re.DOTALL)
-        extracted_answer = final_answer_match.group(1).strip() if final_answer_match else "Could not extract final answer."
+        # extracted_answer = final_answer_match.group(1).strip() if final_answer_match else "Could not extract final answer."
+        if final_answer_match:
+            extracted_answer = final_answer_match.group(1).strip()
+        else:
+            # 嘗試從最後一行補救
+            lines = gen_full_got_process.strip().splitlines()
+            last_line = lines[-1].strip() if lines else ""
+            extracted_answer = last_line if last_line else "Could not extract final answer."
         thoughtflow_summary = gen_full_got_process # The entire GoT process serves as the thoughtflow summary
 
         # NLP Metrics Calculation
@@ -381,12 +389,19 @@ def run_got_evaluation(input_csv, output_csv, num_samples=None):
             'label_l_final_answer': lbl,
             'llm_similarity_final_answer': sim,
             'receval_assessment_thoughtflow_incl_prm': rec,
-            **met
+            **met,
+            'final_answer_extracted': 0 if extracted_answer.startswith("Could not extract") else 1
         })
-    pd.DataFrame(results).to_csv(output_csv, index=False, encoding='utf-8-sig')
-    logger.info(f"Evaluation complete. Results saved to: {output_csv}")
-
+    # pd.DataFrame(results).to_csv(output_csv, index=False, encoding='utf-8-sig')
+    df_output = pd.DataFrame(results)
+    # 儲存為 Excel
+    output_excel_path = os.path.splitext(output_csv)[0] + ".xlsx"
+    with ExcelWriter(output_excel_path, engine='openpyxl') as writer:
+        df_output.to_excel(writer, sheet_name="GoT_Eval", index=False)
+    logger.info(f"✅ Evaluation complete. Results saved to: {output_excel_path}")
+    
+    
 if __name__ == "__main__":
     input_path = r"D:\data_science\final_project\MAS-PRM\dataset\All_of_dataset1.csv"
-    output_path = r"D:\data_science\final_project\MAS-PRM\evaluation_v2\baseline-Got_eval_output.csv"
+    output_path = r"D:\data_science\final_project\MAS-PRM\evaluation_v2\baseline-Got_eval_output.xlsx"
     run_got_evaluation(input_path, output_path, num_samples=None)
