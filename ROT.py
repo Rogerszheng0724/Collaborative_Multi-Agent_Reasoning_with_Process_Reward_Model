@@ -17,8 +17,8 @@ class DefaultLogger:
 # --- Gemini LLM Interface (ROT Version) ---
 class GeminiLLMInterface:
     # def __init__(self, model_name="gemini-1.5-flash-latest", api_key=None, logger=None): # 添加 logger
-    def __init__(self, model_name="gemini-2.0-flash-lite", api_key=None, logger=None): # 添加 logger
-    # def __init__(self, model_name="gemini-2.0-flash", api_key=None, logger=None): # 添加 logger
+    # def __init__(self, model_name="gemini-2.0-flash-lite", api_key=None, logger=None): # 添加 logger
+    def __init__(self, model_name="gemini-2.0-flash", api_key=None, logger=None): # 添加 logger
         self.model = None
         self.logger = logger if logger else DefaultLogger()
         effective_api_key = api_key or GEMINI_API_KEY_FROM_ENV
