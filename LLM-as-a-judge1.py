@@ -12,31 +12,59 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
     raise RuntimeError("GEMINI_API_KEY not set in environment")
 genai.configure(api_key=API_KEY)
+print(API_KEY)
 
 MODEL_NAME = "gemini-2.5-pro-preview-05-06"
-INPUT_EXCEL_PATH = r"D:\data_science\final_project\MAS-PRM\evaluation_v3\processed_Lot_eval_output.xlsx"
-OUTPUT_EXCEL_PATH = r"D:\data_science\final_project\MAS-PRM\evaluation_v3\LLM-judge-baseline-Lot_evaluation_results.xlsx"
+INPUT_EXCEL_PATH = r"D:\data_science\final_project\MAS-PRM\evaluation_v3\RoT-LLM-judge\processed_Rot_eval_output_Part4.xlsx"
+OUTPUT_EXCEL_PATH = r"D:\data_science\final_project\MAS-PRM\evaluation_v3\RoT-LLM-judge\LLM-judge-baseline-Rot_evaluation_results_Part4.xlsx"
+
+# FIXED_CRITERIA = [
+#     {
+#         "name": "Clarity",
+#         "description": (
+#             "Is the answer written with precise and unambiguous language, "
+#             "free from vagueness, redundancy, or logical inconsistency?"
+#         )
+#     },
+#     {
+#         "name": "Completeness",
+#         "description": (
+#             "Does the answer address every component of the question in detail, "
+#             "demonstrating a comprehensive and in-depth understanding, without omitting any relevant aspect?"
+#         )
+#     },
+#     {
+#         "name": "Relevance",
+#         "description": (
+#             "Is the answer strictly focused on the core of the question, "
+#             "avoiding any off-topic, generic, or filler content, and supported by appropriate reasoning or evidence?"
+#         )
+#     }
+# ]
 
 FIXED_CRITERIA = [
     {
         "name": "Clarity",
         "description": (
-            "Is the answer written with precise and unambiguous language, "
-            "free from vagueness, redundancy, or logical inconsistency?"
+            "• Uses precise terminology and unambiguous phrasing.\n"
+            "• Maintains a clear logical flow with no undefined pronouns or jargon.\n"
+            "• Avoids redundancy, filler words, and contradictory assertions."
         )
     },
     {
         "name": "Completeness",
         "description": (
-            "Does the answer address every component of the question in detail, "
-            "demonstrating a comprehensive and in-depth understanding, without omitting any relevant aspect?"
+            "• Explicitly addresses every sub-question or requirement.\n"
+            "• Provides necessary definitions, examples, or data to support each point.\n"
+            "• Considers edge cases or counterarguments where relevant, without omitting any critical aspect."
         )
     },
     {
         "name": "Relevance",
         "description": (
-            "Is the answer strictly focused on the core of the question, "
-            "avoiding any off-topic, generic, or filler content, and supported by appropriate reasoning or evidence?"
+            "• Stays focused on the core prompt with no off-topic digressions.\n"
+            "• Ties every claim directly to the question and backs it with reasoning or citations.\n"
+            "• Omits generic filler and unsupported opinions."
         )
     }
 ]
@@ -54,7 +82,7 @@ async def call_gemini_api(prompt: str) -> dict:
         try:
             resp = await model.generate_content_async(
                 contents=[prompt],
-                generation_config=genai.types.GenerationConfig(temperature=0.2)
+                generation_config=genai.types.GenerationConfig(temperature=0.7)
             )
             text = getattr(resp, "text", "").strip()
             m = re.search(r"(\{.*\})", text, re.S)
