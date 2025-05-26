@@ -511,7 +511,35 @@ class MASOrchestrator:
             current_round += 1
             self.logger.info(f"Debate Round {current_round}: Critical Analyst")
             # prompt_critic = f"As the Critical Analyst, critically evaluate ROT's idea ('{str(rot_statement)[:100]}...') , GOT's idea ('{str(got_statement)[:100]}...'), and LOT's idea ('{str(lot_statement)[:100]}...'). Identify potential weaknesses, overlooked aspects, or inconsistencies regarding the mission '{str(mission_context)[:100]}...'. Evaluate the correctness of the response in relation to the mission context. Suggest improvements."
-            prompt_critic = f"As the Critical Analyst, critically evaluate ROT's idea ('{str(rot_statement)}') , GOT's idea ('{str(got_statement)}'), and LOT's idea ('{str(lot_statement)}'). Identify potential weaknesses, overlooked aspects, or inconsistencies regarding the mission '{str(mission_context)}'. Evaluate the correctness of the response in relation to the mission context. Suggest improvements."
+            # prompt_critic = f"""
+            #     As the Critical_Analyst, your task is to evaluate the ideas presented by ROT and GOT representatives for the mission: '{str(mission_context)}'.
+            #     ROT's latest statement/idea: '{str(rot_idea)}'
+            #     GOT's latest statement/idea: '{str(got_idea)}'
+            #     GOT's latest statement/idea: '{str(lot_idea)}'
+            #     Critically evaluate all three. Identify potential weaknesses, overlooked aspects, or inconsistencies in each, relative to the mission.
+            #     Assess the correctness and completeness of each proposed solution.
+            #     Suggest specific improvements or points of caution for each.
+            #     Provide a balanced overall critique.
+
+            #     Your response must strictly follow the format below:
+            #     ### Synthesized Accurate Answer:
+            #     (Provide a clear and concise synthesized answer derived from the combined strengths of ROT,GOT and LOT.)
+            #     """
+            prompt_critic = f"""
+                As the Critical_Analyst, your task is to evaluate the ideas presented by ROT and GOT representatives for the mission: '{str(mission_context)}'.
+                ROT's latest statement/idea: '{str(rot_idea)}'
+                GOT's latest statement/idea: '{str(got_idea)}'
+                GOT's latest statement/idea: '{str(lot_idea)}'
+                Critically evaluate all three. Identify potential weaknesses, overlooked aspects, or inconsistencies in each, relative to the mission.
+                Assess the correctness and completeness of each proposed solution.
+                Suggest specific improvements or points of caution for each.
+                Provide a balanced overall critique.
+
+                At the very end of your response, include this final section:
+
+                ### Synthesized Accurate Answer:
+                (Provide a clear, concise answer that integrates the best insights from ROT, GOT, and LOT. This section must appear last. If it is a multiple-choice question, your answer must exactly match one of the options provided in the question.)
+                """
             critic_statement = critic_agent.speak(prompt_critic, discussion_context_summary)
             debate_transcript.append({"speaker": critic_agent.name, "utterance": critic_statement})
             discussion_context_summary += f"\nRound {current_round} - {critic_agent.name}:\n{critic_statement}\n"
@@ -756,7 +784,8 @@ class MASOrchestrator:
 
         # Save transcript CSV
         df = pd.DataFrame(rows, columns=["Round", "Speaker", "Utterance"])
-        df.to_csv(f"C:\\Users\\user\\Documents\\GitHub\\MAS-PRM\\debate_transcripts\\part4\\debate_transcript_q{index}_r0.csv", index=False, encoding="utf-8-sig")
+        # df.to_csv(f"C:\\Users\\user\\Documents\\GitHub\\MAS-PRM\\debate_transcripts\\test\\debate_transcript_q{index}_r0.csv", index=False, encoding="utf-8-sig")
+        df.to_csv(f"C:\\Users\\user\\Desktop\\MAS-PRM-ablation_remove_prm\\debate_transcripts\\part4\\debate_transcript_q{index}_r0.csv", index=False, encoding="utf-8-sig")
         print("✅ 已輸出 debate_transcript.csv，包含輪次、發言者與內容，可在 Excel 中直接瀏覽。")
 
         self.logger.info(f"Proactively sleeping for {proactive_delay_between_stages}s after MAS Debate phase.")
@@ -765,7 +794,7 @@ class MASOrchestrator:
         # Capture pre-synthesis summary
         original_thoughtflow_summary_pre_prm = (
             f"Initial Task: {initial_task_description}...\n"
-            f"Refined Task: {refined_task_prompt_for_core_logic}...\n"
+            f"ROT Idea: {rot_solution}...\n"
             f"GOT Idea: {aggregated_thought}...\n"
             f"LOT Idea: {lot_detailed_plan_str}...\n"
             f"{debate_summary_for_synthesis}\n"
@@ -779,22 +808,40 @@ class MASOrchestrator:
         if not self.synthesis_llm or isinstance(self.synthesis_llm, BaseDummyLLM) or not hasattr(self.synthesis_llm, 'generate'):
             self.logger.warning("MASOrchestrator", "Synthesis LLM not effectively initialized. Using placeholder for initial synthesis.")
         else:
+            # synthesis_prompt = f"""
+            # Task Context (Original): {initial_task_description}
+
+            # Outputs from Reasoning Modules This Cycle:
+            # ROT Solution/Idea: {rot_solution}
+            # GOT Core Idea: {aggregated_thought}
+            # LOT Core Idea: {lot_detailed_plan_str}
+            # Debate Summary This Cycle: {debate_summary_for_synthesis}
+
+            # Synthesize these elements into a coherent and comprehensive answer/reasoning process for the task.
+            # Focus on fulfilling the requirements of 'Current Task Input for this Cycle'.
+            # **Important:** Do not mention the source of information (e.g., ROT, GOT). Integrate them seamlessly.
+
+            # Your response must strictly follow the format below:
+            # ### Synthesized Accurate Answer:
+            # (Provide a clear and concise synthesized answer derived from the combined strengths of ROT, GOT and LOT.)
+            # """
             synthesis_prompt = f"""
-            Based on the following task context, outputs from different reasoning modules (ROT, GOT, LOT), and a debate, generate a comprehensive initial answer or reasoning process.
-            Task Context :
-            {initial_task_description}
-            ROT Core Idea:
-            {rot_solution}
-            GOT Core Idea:
-            {aggregated_thought}
-            LOT Detailed Plan:
-            {lot_detailed_plan_str}
-            Debate Summary:
-            {debate_summary_for_synthesis}
-            Synthesize these elements into a coherent and comprehensive initial answer/reasoning process for the task:
-            **Important:**  
-            Don’t mention where each piece of information came from (e.g., ROT, GOT, or LOT).  
-            Just use the provided details to form a clear, complete answer to the task.
+            Task Context (Original): {initial_task_description}
+
+            Outputs from Reasoning Modules This Cycle:
+            ROT Solution/Idea: {rot_solution}
+            GOT Core Idea: {aggregated_thought}
+            LOT Core Idea: {lot_detailed_plan_str}
+            Debate Summary This Cycle: {debate_summary_for_synthesis}
+
+            Synthesize these elements into a coherent and comprehensive answer/reasoning process for the task.
+            Focus on fulfilling the requirements of 'Current Task Input for this Cycle'.
+            **Important:** Do not mention the source of information (e.g., ROT, GOT). Integrate them seamlessly.
+
+            At the very end of your response, include this final section:
+
+            ### Synthesized Accurate Answer:
+            (Provide a clear, concise answer that integrates the best insights from ROT, GOT, and LOT. This section must appear last. If it is a multiple-choice question, your answer must exactly match one of the options provided in the question.)
             """
             try:
                 synthesis_output = call_llm_with_retry(
@@ -1108,7 +1155,8 @@ def main():
     elif isinstance(evaluation_llm_interface, BaseDummyLLM):
          logger.warning("main", "Evaluation LLM (from orchestrator.synthesis_llm) is BaseDummyLLM. Evaluation results will be placeholders.")
 
-    csv_file_path = r"C:\Users\user\Documents\GitHub\MAS-PRM\dataset\All_of_dataset_part4.csv" 
+    # csv_file_path = r"C:\Users\user\Documents\GitHub\MAS-PRM\dataset\All_of_dataset_test.csv" 
+    csv_file_path = r"C:\Users\user\Desktop\MAS-PRM-ablation_remove_prm\dataset\All_of_dataset_part4.csv" 
     # csv_file_path = "data.csv"
     logger.info(f"Attempting to load CSV data from: {csv_file_path}")
 
@@ -1258,7 +1306,8 @@ def main():
         logger.info("No items were processed.")
     else:
         results_df = pd.DataFrame(all_results)
-        output_excel_filename = "C:\\Users\\user\\Documents\\GitHub\\MAS-PRM\\result\\part4\\evaluation_results_dolly_gsm8k.xlsx" 
+        # output_excel_filename = "C:\\Users\\user\\Documents\\GitHub\\MAS-PRM\\result\\test\\evaluation_results_dolly_gsm8k.xlsx" 
+        output_excel_filename = "C:\\Users\\user\\Desktop\\MAS-PRM-ablation_remove_prm\\result\\part4\\evaluation_results_part4.xlsx" 
         try:
             results_df.to_excel(output_excel_filename, index=False, engine='openpyxl')
             logger.info(f"Detailed evaluation results saved to: {output_excel_filename}")

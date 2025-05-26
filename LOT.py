@@ -95,8 +95,8 @@ class GraphOfThoughts: # GraphOfThoughts in LOT is a base, primarily inherited a
 # --- Gemini API Interface ---
 class GeminiLLMInterface:
     # def __init__(self, api_key, model_name="gemini-1.5-flash-latest", logger=None): # 添加 logger
-    # def __init__(self, api_key, model_name="gemini-2.0-flash", logger=None): # 添加 logger
-    def __init__(self, api_key, model_name="gemini-2.0-flash-lite", logger=None): # 添加 logger
+    def __init__(self, api_key, model_name="gemini-2.0-flash", logger=None): # 添加 logger
+    # def __init__(self, api_key, model_name="gemini-2.0-flash-lite", logger=None): # 添加 logger
         self.model = None
         self.logger = logger if logger else DefaultLogger()
         if not api_key:
@@ -440,8 +440,8 @@ def run_lot_example_workflow_with_prm(api_key):
     try:
         # 操作型 LLM (用於生成標準、生成選項解決方案等)
         # llm_operator = GeminiLLMInterface(api_key=api_key, model_name="gemini-1.5-flash-latest", logger=logger_example)
-        # llm_operator = GeminiLLMInterface(api_key=api_key, model_name="gemini-2.0-flash", logger=logger_example)
-        llm_operator = GeminiLLMInterface(api_key=api_key, model_name="gemini-2.0-flash-lite", logger=logger_example)
+        llm_operator = GeminiLLMInterface(api_key=api_key, model_name="gemini-2.0-flash", logger=logger_example)
+        # llm_operator = GeminiLLMInterface(api_key=api_key, model_name="gemini-2.0-flash-lite", logger=logger_example)
         # PRM 評估器 LLM (可以與操作型 LLM 相同，也可以是另一個更強的或專門微調的評估模型)
         # 為了演示，這裡使用相同的 LLM 實例
         llm_prm_evaluator = llm_operator 
