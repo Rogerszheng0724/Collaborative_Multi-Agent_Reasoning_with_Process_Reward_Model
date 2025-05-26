@@ -15,8 +15,8 @@ genai.configure(api_key=API_KEY)
 print(API_KEY)
 
 MODEL_NAME = "gemini-2.5-pro-preview-05-06"
-INPUT_EXCEL_PATH = r"D:\data_science\final_project\MAS-PRM\evaluation_v3\RoT-LLM-judge\processed_Rot_eval_output_Part4.xlsx"
-OUTPUT_EXCEL_PATH = r"D:\data_science\final_project\MAS-PRM\evaluation_v3\RoT-LLM-judge\LLM-judge-baseline-Rot_evaluation_results_Part4.xlsx"
+INPUT_EXCEL_PATH = r"D:\data_science\final_project\MAS-PRM\evaluation_v3\CoT-LLM-judge\processed_Cot_eval_output_Part4.xlsx"
+OUTPUT_EXCEL_PATH = r"D:\data_science\final_project\MAS-PRM\evaluation_v3\CoT-LLM-judge\LLM-judge-baseline-Cot_evaluation_results_Part4.xlsx"
 
 # FIXED_CRITERIA = [
 #     {
