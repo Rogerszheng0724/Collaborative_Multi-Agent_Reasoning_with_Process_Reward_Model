@@ -530,7 +530,7 @@ class MASOrchestrator:
             self.iterative_optimizer_llm = BaseDummyLLM(api_key=self.api_key, model_name="optimizer_llm_exc_fallback", logger=self.logger)
 
 
-    def conduct_mas_debate(self, mission_context,rot_idea, got_idea, lot_idea=None, max_rounds=3): # Removed prm and prm_prompt, they are not used here
+    def conduct_mas_debate(self, mission_context,rot_idea, got_idea=None, lot_idea=None, max_rounds=3): # Removed prm and prm_prompt, they are not used here
         self.logger.section_start(f"MAS Style Debate (Targeting {max_rounds} Rounds)")
         proactive_delay_between_turns = 5 # As in [1]
 
@@ -539,13 +539,13 @@ class MASOrchestrator:
         # Truncate inputs for context summary to avoid overly long summaries
         mission_context_summary_part = str(mission_context)
         rot_idea_summary_part = str(rot_idea)
-        got_idea_summary_part = str(got_idea)
-        # lot_idea_summary_part = str(lot_idea)
+        # got_idea_summary_part = str(got_idea)
+        lot_idea_summary_part = str(lot_idea)
 
         discussion_context_summary = f"Mission Context (partial):\n{mission_context_summary_part}...\n"
         discussion_context_summary += f"Initial Core Idea from ROT (partial):\n{rot_idea_summary_part}...\n"
-        discussion_context_summary += f"Initial Core Idea from GOT (partial):\n{got_idea_summary_part}...\n"
-        # discussion_context_summary += f"Initial Detailed Plan from LOT (partial):\n{lot_idea_summary_part}...\n"
+        # discussion_context_summary += f"Initial Core Idea from GOT (partial):\n{got_idea_summary_part}...\n"
+        discussion_context_summary += f"Initial Detailed Plan from LOT (partial):\n{lot_idea_summary_part}...\n"
         discussion_context_summary += "The debate will now commence focusing on these ideas.\n"
 
 
@@ -555,25 +555,25 @@ class MASOrchestrator:
 
             # Use the LLMs associated with each system if they are dummies, otherwise a generic dummy
             rot_sim_statement = self.rot_system.llm.generate("ROT opening statement prompt") if hasattr(self.rot_system, 'llm') and isinstance(self.rot_system.llm, BaseDummyLLM) else "Simulated ROT statement."
-            got_sim_statement = self.got_system.llm.generate("GOT opening statement prompt") if hasattr(self.got_system, 'llm') and isinstance(self.got_system.llm, BaseDummyLLM) else "Simulated GOT statement."
-            # lot_sim_statement = self.lot_system.llm.generate("LOT opening statement prompt") if hasattr(self.lot_system, 'llm') and isinstance(self.lot_system.llm, BaseDummyLLM) else "Simulated LOT statement."
+            # got_sim_statement = self.got_system.llm.generate("GOT opening statement prompt") if hasattr(self.got_system, 'llm') and isinstance(self.got_system.llm, BaseDummyLLM) else "Simulated GOT statement."
+            lot_sim_statement = self.lot_system.llm.generate("LOT opening statement prompt") if hasattr(self.lot_system, 'llm') and isinstance(self.lot_system.llm, BaseDummyLLM) else "Simulated LOT statement."
 
             critic_llm_for_sim = self.debate_llm if (self.debate_llm and hasattr(self.debate_llm, 'generate') and not isinstance(self.debate_llm, BaseDummyLLM)) else BaseDummyLLM(logger=self.logger, model_name="critic_sim_dummy")
             critic_sim_statement = critic_llm_for_sim.generate("Critic statement prompt on simulated ideas.")
 
             debate_transcript.append({"speaker": "ROT_Representative", "utterance": rot_sim_statement})
-            debate_transcript.append({"speaker": "GOT_Representative", "utterance": got_sim_statement})
-            # debate_transcript.append({"speaker": "LOT_Representative", "utterance": lot_sim_statement})
+            # debate_transcript.append({"speaker": "GOT_Representative", "utterance": got_sim_statement})
+            debate_transcript.append({"speaker": "LOT_Representative", "utterance": lot_sim_statement})
             debate_transcript.append({"speaker": "Critical_Analyst", "utterance": critic_sim_statement})
             self.logger.section_end(f"MAS Style Debate (Simulated)")
             return debate_transcript
 
         rot_agent = DebateAgent("ROT_Representative", self.debate_llm, self.logger)
-        got_agent = DebateAgent("GOT_Representative", self.debate_llm, self.logger)
-        # lot_agent = DebateAgent("LOT_Representative", self.debate_llm, self.logger)
+        # got_agent = DebateAgent("GOT_Representative", self.debate_llm, self.logger)
+        lot_agent = DebateAgent("LOT_Representative", self.debate_llm, self.logger)
         critic_agent = DebateAgent("Critical_Analyst", self.debate_llm, self.logger)
 
-        opening_statement = f"Debate Topic: In-depth discussion based on the mission context and ideas from ROT and GOT.\n{discussion_context_summary}" # Already includes partial ideas
+        opening_statement = f"Debate Topic: In-depth discussion based on the mission context and ideas from ROT and LOT.\n{discussion_context_summary}" # Already includes partial ideas
         debate_transcript.append({"speaker": "Moderator", "utterance": opening_statement})
 
         current_round_count = 0 # Tracks how many agents have spoken
@@ -588,7 +588,7 @@ class MASOrchestrator:
             prompt_rot = f"""
                 As the ROT(Reversal Of Thought) Representative, your core idea is: '{str(rot_idea)}'. The mission is: '{str(mission_context)}'.
                 1. Elaborate on how your idea addresses the core problem and highlight its key strengths.
-                2. Critically evaluate the GOT idea: '{str(got_idea)}'.
+                2. Critically evaluate the lOT idea: '{str(lot_idea)}'.
                 For 1 and 2, discuss their potential weaknesses, overlooked aspects, or limitations compared to your ROT idea, and explain why your approach might be preferable.
                 """
             rot_statement = rot_agent.speak(prompt_rot, discussion_context_summary) # discussion_context_summary provides overview
@@ -598,58 +598,62 @@ class MASOrchestrator:
                 self.logger.info(f"Debate: Proactively sleeping for {proactive_delay_between_turns}s after {rot_agent.name}.")
                 time.sleep(proactive_delay_between_turns)
 
-        # GOT's turn
-        if current_round_count < max_rounds:
-            current_round_count += 1
-            self.logger.info(f"Debate Round {current_round_count}: GOT Representative")
-            prompt_got = f"""
-                As the GOT(Graph Of Thoughts) Representative, your core idea is: '{str(got_idea)}'. The mission is: '{str(mission_context)}'.
-                1. Elaborate on how your idea addresses the core problem and highlight its key strengths.
-                2. Critically evaluate the ROT idea: '{str(rot_idea)}'.
-                For 1 and 2, discuss their potential weaknesses, overlooked aspects, or limitations compared to your GOT idea, and explain why your approach might be preferable.
-                """
-            got_statement = got_agent.speak(prompt_got, discussion_context_summary)
-            debate_transcript.append({"speaker": got_agent.name, "utterance": got_statement})
-            discussion_context_summary += f"\nRound {current_round_count} - {got_agent.name} (statement partial):\n{got_statement}...\n"
-            if proactive_delay_between_turns > 0:
-                self.logger.info(f"Debate: Proactively sleeping for {proactive_delay_between_turns}s after {got_agent.name}.")
-                time.sleep(proactive_delay_between_turns)
-
-        # LOT's turn
+        # # GOT's turn
         # if current_round_count < max_rounds:
         #     current_round_count += 1
-        #     self.logger.info(f"Debate Round {current_round_count}: LOT Representative")
-        #     prompt_lot = f"""
-        #         As the LOT(Layer Of Thoughts) Representative, your core idea/plan is: '{str(lot_idea)}'. The mission is: '{str(mission_context)}'.
-        #         1. Elaborate on how your detailed plan addresses the core problem and highlight its key strengths and feasibility.
+        #     self.logger.info(f"Debate Round {current_round_count}: GOT Representative")
+        #     prompt_got = f"""
+        #         As the GOT(Graph Of Thoughts) Representative, your core idea is: '{str(got_idea)}'. The mission is: '{str(mission_context)}'.
+        #         1. Elaborate on how your idea addresses the core problem and highlight its key strengths.
         #         2. Critically evaluate the ROT idea: '{str(rot_idea)}'.
-        #         3. Critically evaluate the GOT idea: '{str(got_idea)}'.
-        #         For 2 and 3, discuss their potential weaknesses, overlooked aspects, or limitations compared to your LOT plan, and explain why your approach might be preferable.
+        #         For 1 and 2, discuss their potential weaknesses, overlooked aspects, or limitations compared to your GOT idea, and explain why your approach might be preferable.
         #         """
-        #     lot_statement = lot_agent.speak(prompt_lot, discussion_context_summary)
-        #     debate_transcript.append({"speaker": lot_agent.name, "utterance": lot_statement})
-        #     discussion_context_summary += f"\nRound {current_round_count} - {lot_agent.name} (statement partial):\n{lot_statement}...\n"
+        #     got_statement = got_agent.speak(prompt_got, discussion_context_summary)
+        #     debate_transcript.append({"speaker": got_agent.name, "utterance": got_statement})
+        #     discussion_context_summary += f"\nRound {current_round_count} - {got_agent.name} (statement partial):\n{got_statement}...\n"
         #     if proactive_delay_between_turns > 0:
-        #         self.logger.info(f"Debate: Proactively sleeping for {proactive_delay_between_turns}s after {lot_agent.name}.")
+        #         self.logger.info(f"Debate: Proactively sleeping for {proactive_delay_between_turns}s after {got_agent.name}.")
         #         time.sleep(proactive_delay_between_turns)
+
+        # LOT's turn
+        if current_round_count < max_rounds:
+            current_round_count += 1
+            self.logger.info(f"Debate Round {current_round_count}: LOT Representative")
+            prompt_lot = f"""
+                As the LOT(Layer Of Thoughts) Representative, your core idea/plan is: '{str(lot_idea)}'. The mission is: '{str(mission_context)}'.
+                1. Elaborate on how your detailed plan addresses the core problem and highlight its key strengths and feasibility.
+                2. Critically evaluate the ROT idea: '{str(rot_idea)}'.
+                For 2 and 3, discuss their potential weaknesses, overlooked aspects, or limitations compared to your LOT plan, and explain why your approach might be preferable.
+                """
+            lot_statement = lot_agent.speak(prompt_lot, discussion_context_summary)
+            debate_transcript.append({"speaker": lot_agent.name, "utterance": lot_statement})
+            discussion_context_summary += f"\nRound {current_round_count} - {lot_agent.name} (statement partial):\n{lot_statement}...\n"
+            if proactive_delay_between_turns > 0:
+                self.logger.info(f"Debate: Proactively sleeping for {proactive_delay_between_turns}s after {lot_agent.name}.")
+                time.sleep(proactive_delay_between_turns)
 
         # Critic's turn (only if there's room in max_rounds and previous statements exist)
         # Get latest statements for critic, fall back to placeholders if not generated
         final_rot_statement_for_critic = next((item['utterance'] for item in reversed(debate_transcript) if item['speaker'] == 'ROT_Representative'), rot_idea)
-        final_got_statement_for_critic = next((item['utterance'] for item in reversed(debate_transcript) if item['speaker'] == 'GOT_Representative'), got_idea)
-        # final_lot_statement_for_critic = next((item['utterance'] for item in reversed(debate_transcript) if item['speaker'] == 'LOT_Representative'), lot_idea)
+        # final_got_statement_for_critic = next((item['utterance'] for item in reversed(debate_transcript) if item['speaker'] == 'GOT_Representative'), got_idea)
+        final_lot_statement_for_critic = next((item['utterance'] for item in reversed(debate_transcript) if item['speaker'] == 'LOT_Representative'), lot_idea)
 
         if current_round_count < max_rounds:
             current_round_count += 1
             self.logger.info(f"Debate Round {current_round_count}: Critical Analyst")
             prompt_critic = f"""
-                As the Critical_Analyst, your task is to evaluate the ideas presented by ROT and GOT representatives for the mission: '{str(mission_context)}'.
-                ROT's latest statement/idea: '{str(final_rot_statement_for_critic)}'
-                GOT's latest statement/idea: '{str(final_got_statement_for_critic)}'
+                As the Critical_Analyst, your task is to evaluate the ideas presented by ROT and LOT representatives for the mission: '{str(mission_context)}'.
+                ROT's latest statement/idea: '{str(rot_idea)}'
+                LOT's latest statement/idea: '{str(lot_idea)}'
                 Critically evaluate all three. Identify potential weaknesses, overlooked aspects, or inconsistencies in each, relative to the mission.
                 Assess the correctness and completeness of each proposed solution.
                 Suggest specific improvements or points of caution for each.
                 Provide a balanced overall critique.
+
+                At the very end of your response, include this final section:
+
+                ### Synthesized Accurate Answer:
+                (Provide a clear, concise answer that integrates the best insights from ROT and LOT. This section must appear last. If it is a multiple-choice question, your answer must exactly match one of the options provided in the question.)
                 """
             critic_statement = critic_agent.speak(prompt_critic, discussion_context_summary)
             debate_transcript.append({"speaker": critic_agent.name, "utterance": critic_statement})
@@ -896,7 +900,7 @@ class MASOrchestrator:
         return aggregated_thought_content
 
 
-    def LOT_phase(self, task_desc, got_best_idea_content, proactive_delay): # Simplified params for [1]
+    def LOT_phase(self, task_desc, got_best_idea_content = None, proactive_delay = 3): # Simplified params for [1]
         self.logger.info("--- LOT Phase ---")
         lot_detailed_plan_str = f"Default LOT detailed plan for task: {task_desc}..." # Default
 
@@ -905,7 +909,7 @@ class MASOrchestrator:
             plan_output = self.lot_system.run_pipeline(
                 conceptual_steps=["Analyze task and GOT idea", "Formulate detailed execution steps", "Structure the final plan", "Generate and present the answer based on the plan"],
                 main_task_description=task_desc,
-                initial_input=got_best_idea_content # LOT takes the idea from GOT as input
+                # initial_input=got_best_idea_content # LOT takes the idea from GOT as input
             )
             if plan_output and "dummy" not in str(plan_output).lower() and str(plan_output).strip():
                 lot_detailed_plan_str = str(plan_output)
@@ -958,16 +962,16 @@ class MASOrchestrator:
             # If ROT refines the *task description itself* for all subsequent modules, then `refined_task_prompt_from_rot` should be used by GOT.
             # If ROT produces a *solution component* or a *refined query for itself*, then GOT might still use `current_task_input_for_pipeline`.
             # Let's assume current_task_input_for_pipeline is the primary task spec for GOT/LOT. ROT's output is a component.
-            got_aggregated_idea = self.GOT_phase(
-                task_desc=current_task_input_for_pipeline, # Or refined_task_prompt_from_rot if it's a general task refinement
-                proactive_delay=proactive_delay_between_stages
-            )
-            # LOT Phase
-            # lot_detailed_plan = self.LOT_phase(
-            #     task_desc=current_task_input_for_pipeline, # Or refined_task_prompt_from_rot
-            #     got_best_idea_content=got_aggregated_idea,
+            # got_aggregated_idea = self.GOT_phase(
+            #     task_desc=current_task_input_for_pipeline, # Or refined_task_prompt_from_rot if it's a general task refinement
             #     proactive_delay=proactive_delay_between_stages
             # )
+            # LOT Phase
+            lot_detailed_plan = self.LOT_phase(
+                task_desc=current_task_input_for_pipeline, # Or refined_task_prompt_from_rot
+                # got_best_idea_content=got_aggregated_idea,
+                proactive_delay=proactive_delay_between_stages
+            )
 
             # --- MAS Debate Phase ---
             self.logger.info(f"--- MAS Debate Phase (Cycle {current_prm_cycle_num + 1}) ---")
@@ -975,8 +979,8 @@ class MASOrchestrator:
             mas_debate_transcript = self.conduct_mas_debate(
                 mission_context=initial_task_description, # The overarching mission
                 rot_idea=rot_solution,
-                got_idea=got_aggregated_idea,
-                # lot_idea=lot_detailed_plan,
+                # got_idea=got_aggregated_idea,
+                lot_idea=lot_detailed_plan,
                 max_rounds=num_debate_rounds
             )
             debate_summary_str = "Debate Record Summary:\n"
@@ -985,14 +989,14 @@ class MASOrchestrator:
 
             # Save debate transcript for this specific cycle and CSV item
             if index is not None: # Ensure debate_transcripts directory exists
-                # os.makedirs("debate_transcripts/part4", exist_ok=True)
+                # os.makedirs("debate_transcripts/part1", exist_ok=True)
                 debate_df_rows = []
                 for idx, entry in enumerate(mas_debate_transcript, start=1):
                     utterance_single_line = str(entry["utterance"]).replace("\n", " ").strip()
                     debate_df_rows.append({"Round": idx, "Speaker": entry["speaker"], "Utterance": utterance_single_line})
                 debate_df = pd.DataFrame(debate_df_rows, columns=["Round", "Speaker", "Utterance"])
                 # Naming convention from [1]
-                csv_filename = f"debate_transcripts/part4/debate_transcript_q{index}_cycle{current_prm_cycle_num + 1}.csv"
+                csv_filename = f"debate_transcripts/part1/debate_transcript_q{index}_cycle{current_prm_cycle_num + 1}.csv"
                 try:
                     debate_df.to_csv(csv_filename, index=False, encoding="utf-8-sig")
                     self.logger.info(f"Debate transcript for q:{index} cycle:{current_prm_cycle_num+1} saved to {csv_filename}")
@@ -1009,16 +1013,20 @@ class MASOrchestrator:
             synthesized_artifact_this_cycle = f"Default synthesis for cycle {current_prm_cycle_num + 1}"
             synthesis_prompt_this_cycle = f"""
             Task Context (Original): {initial_task_description}
-            Current Task Input for this Cycle (if refined by previous PRM): {current_task_input_for_pipeline}
 
             Outputs from Reasoning Modules This Cycle:
             ROT Solution/Idea: {rot_solution}
-            GOT Core Idea: {got_aggregated_idea}
+            LOT Core Idea: {lot_detailed_plan}
             Debate Summary This Cycle: {debate_summary_str}
 
             Synthesize these elements into a coherent and comprehensive answer/reasoning process for the task.
             Focus on fulfilling the requirements of 'Current Task Input for this Cycle'.
-            **Important:** Do not mention the source of information (e.g., ROT, GOT). Integrate them seamlessly.
+            **Important:** Do not mention the source of information (e.g., ROT, LOT). Integrate them seamlessly.
+
+            At the very end of your response, include this final section:
+
+            ### Synthesized Accurate Answer:
+            (Provide a clear, concise answer that integrates the best insights from ROT and LOT. This section must appear last. If it is a multiple-choice question, your answer must exactly match one of the options provided in the question.)
             """
             if not self.synthesis_llm or isinstance(self.synthesis_llm, BaseDummyLLM) or not hasattr(self.synthesis_llm, 'generate'): # This call should now work
                 self.logger.warning("MASOrchestrator", f"Synthesis LLM not effectively initialized for cycle {current_prm_cycle_num + 1}. Using placeholder.")
@@ -1045,7 +1053,7 @@ class MASOrchestrator:
                 original_thoughtflow_summary_first_cycle = (
                     f"Initial Task (CSV Index {index}): {initial_task_description}...\n"
                     f"ROT Output (Cycle 1): {str(rot_solution)}...\n"
-                    f"GOT Output (Cycle 1): {str(got_aggregated_idea)}...\n"
+                    f"LOT Output (Cycle 1): {str(lot_detailed_plan)}...\n"
                     f"Debate Summary (Cycle 1, partial): {debate_summary_str}...\n"
                     f"Synthesized Artifact (Cycle 1, pre-PRM feedback): {synthesized_artifact_this_cycle}...\n"
                     "--- End of First Cycle Pre-PRM Components ---"
@@ -1053,7 +1061,7 @@ class MASOrchestrator:
             accumulated_thoughtflow_summary_parts.append(
                 f"\n--- Cycle {current_prm_cycle_num + 1} Details ---\n"
                 f"Task Input This Cycle: {current_task_input_for_pipeline}...\n"
-                f"ROT: {str(rot_solution)[:80]}...\nGOT: {str(got_aggregated_idea)}...\n"
+                f"ROT: {str(rot_solution)[:80]}...\nLOT: {str(lot_detailed_plan)}...\n"
                 f"Debate (brief): {debate_summary_str}...\n"
                 f"Synthesized Artifact This Cycle: {synthesized_artifact_this_cycle}...\n"
             )
@@ -1110,7 +1118,7 @@ class MASOrchestrator:
                 PRM Improvement Suggestions: {prm_justification_this_cycle}
 
                 Your goal is to refine the *task description or generate a new focused query* for the *next reasoning cycle*.
-                This new task input should guide the subsequent ROT and GOT modules to produce an improved final answer that addresses the PRM's suggestions.
+                This new task input should guide the subsequent ROT and LOT modules to produce an improved final answer that addresses the PRM's suggestions.
                 Consider the original task and the PRM feedback.
                 What should the *input* to the next full reasoning pipeline be to achieve a better result?
                 Output only the refined task description or new focused query for the next cycle.
@@ -1474,8 +1482,8 @@ def main():
     logger.section_start("Main Evaluation Flow")
 
     global IMPORTS_SUCCESSFUL, GEMINI_API_KEY, torch # PyTorch import status
-    # GOOGLE_API_KEY = 'YOUR_API_KEY_HERE' # Example if needed elsewhere
-    # GEMINI_API_KEY = 'YOUR_API_KEY_HERE' # Loaded from .env
+    GOOGLE_API_KEY = 'AIzaSyA-4smIZ6201IBDmiPgYRwQYmtQtYEzd_I' # Example if needed elsewhere
+    GEMINI_API_KEY = 'AIzaSyA-4smIZ6201IBDmiPgYRwQYmtQtYEzd_I' # Loaded from .env
     logger.info(f"GEMINI_API_KEY check: {'Loaded' if GEMINI_API_KEY and GEMINI_API_KEY != 'YOUR_GEMINI_API_KEY_HERE' else 'Not loaded or placeholder'}")
 
     try:
@@ -1503,13 +1511,13 @@ def main():
 
     # Ensure dataset and result directories exist
     dataset_base_dir = r"C:\Users\user\Documents\GitHub\MAS-PRM\dataset"
-    results_base_dir = "result/part4" # From [1]
+    results_base_dir = "result/part1" # From [1]
     # os.makedirs(dataset_base_dir, exist_ok=True)
     # os.makedirs(results_base_dir, exist_ok=True)
     # Ensure debate transcripts directory from [1] exists
-    # os.makedirs("debate_transcripts/part4", exist_ok=True)
+    # os.makedirs("debate_transcripts/part1", exist_ok=True)
 
-    csv_file_path = os.path.join(dataset_base_dir, "All_of_dataset_part4.csv") # Path from [1]
+    csv_file_path = os.path.join(dataset_base_dir, "All_of_dataset_part1.csv") # Path from [1]
     logger.info(f"Attempting to load CSV data from: {os.path.abspath(csv_file_path)}")
 
     if not os.path.exists(csv_file_path):
@@ -1592,7 +1600,10 @@ def main():
         if num_processed >= max_items_to_process:
             logger.info(f"Reached processing limit of {max_items_to_process} items.")
             break
-
+        # if index<=49:
+        #     print("skip")
+        #     continue
+        # logger.info(f"現在是第{index} round")
         num_processed += 1
         logger.section_start(f"Processing Item {num_processed}/{max_items_to_process} (CSV Index {index})")
 

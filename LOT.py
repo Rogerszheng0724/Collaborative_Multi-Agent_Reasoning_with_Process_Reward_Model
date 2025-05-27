@@ -356,7 +356,7 @@ class LayerOfThoughts(GraphOfThoughts):
     def run_pipeline(self, conceptual_steps, main_task_description, initial_input=None, min_layer_prm_score_threshold=0.3):
         # main_task_description is the final task the entire LOT process is trying to solve
         # min_layer_prm_score_threshold: If a layer's aggregated output PRM score is below this, consider early termination or remedial actions
-        
+    
         previous_layer_output_content = initial_input
         final_pipeline_output = None # The final, considered successful, pipeline output
         
@@ -393,7 +393,7 @@ class LayerOfThoughts(GraphOfThoughts):
                 final_pipeline_output = previous_layer_output_content # Use previous layer's output as final result
                 break 
             
-            self.logger.info(f"Layer {i} aggregated output PRM score: {layer_prm_score:.2f}. Justification: {layer_prm_justification}")
+            # self.logger.info(f"Layer {i} aggregated output PRM score: {layer_prm_score:.2f}. Justification: {layer_prm_justification}")
 
             # if layer_prm_score < min_layer_prm_score_threshold:
             #     self.logger.warning("LOT",f"Layer {i}'s aggregated output PRM score ({layer_prm_score:.2f}) is below threshold ({min_layer_prm_score_threshold}).")
