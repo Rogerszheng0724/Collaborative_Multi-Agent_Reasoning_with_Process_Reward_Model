@@ -644,12 +644,17 @@ class MASOrchestrator:
             self.logger.info(f"Debate Round {current_round_count}: Critical Analyst")
             prompt_critic = f"""
                 As the Critical_Analyst, your task is to evaluate the ideas presented by ROT and GOT representatives for the mission: '{str(mission_context)}'.
-                ROT's latest statement/idea: '{str(final_rot_statement_for_critic)}'
-                GOT's latest statement/idea: '{str(final_got_statement_for_critic)}'
+                ROT's latest statement/idea: '{str(rot_idea)}'
+                GOT's latest statement/idea: '{str(got_idea)}'
                 Critically evaluate all three. Identify potential weaknesses, overlooked aspects, or inconsistencies in each, relative to the mission.
                 Assess the correctness and completeness of each proposed solution.
                 Suggest specific improvements or points of caution for each.
                 Provide a balanced overall critique.
+
+                At the very end of your response, include this final section:
+
+                ### Synthesized Accurate Answer:
+                (Provide a clear, concise answer that integrates the best insights from ROT and GOT. This section must appear last. If it is a multiple-choice question, your answer must exactly match one of the options provided in the question.)
                 """
             critic_statement = critic_agent.speak(prompt_critic, discussion_context_summary)
             debate_transcript.append({"speaker": critic_agent.name, "utterance": critic_statement})
@@ -985,14 +990,14 @@ class MASOrchestrator:
 
             # Save debate transcript for this specific cycle and CSV item
             if index is not None: # Ensure debate_transcripts directory exists
-                # os.makedirs("debate_transcripts/part4", exist_ok=True)
+                # os.makedirs("debate_transcripts/part1", exist_ok=True)
                 debate_df_rows = []
                 for idx, entry in enumerate(mas_debate_transcript, start=1):
                     utterance_single_line = str(entry["utterance"]).replace("\n", " ").strip()
                     debate_df_rows.append({"Round": idx, "Speaker": entry["speaker"], "Utterance": utterance_single_line})
                 debate_df = pd.DataFrame(debate_df_rows, columns=["Round", "Speaker", "Utterance"])
                 # Naming convention from [1]
-                csv_filename = f"debate_transcripts/part4/debate_transcript_q{index}_cycle{current_prm_cycle_num + 1}.csv"
+                csv_filename = f"debate_transcripts/part1/debate_transcript_q{index}_cycle{current_prm_cycle_num + 1}.csv"
                 try:
                     debate_df.to_csv(csv_filename, index=False, encoding="utf-8-sig")
                     self.logger.info(f"Debate transcript for q:{index} cycle:{current_prm_cycle_num+1} saved to {csv_filename}")
@@ -1009,7 +1014,6 @@ class MASOrchestrator:
             synthesized_artifact_this_cycle = f"Default synthesis for cycle {current_prm_cycle_num + 1}"
             synthesis_prompt_this_cycle = f"""
             Task Context (Original): {initial_task_description}
-            Current Task Input for this Cycle (if refined by previous PRM): {current_task_input_for_pipeline}
 
             Outputs from Reasoning Modules This Cycle:
             ROT Solution/Idea: {rot_solution}
@@ -1019,6 +1023,11 @@ class MASOrchestrator:
             Synthesize these elements into a coherent and comprehensive answer/reasoning process for the task.
             Focus on fulfilling the requirements of 'Current Task Input for this Cycle'.
             **Important:** Do not mention the source of information (e.g., ROT, GOT). Integrate them seamlessly.
+
+            At the very end of your response, include this final section:
+
+            ### Synthesized Accurate Answer:
+            (Provide a clear, concise answer that integrates the best insights from ROT and GOT. This section must appear last. If it is a multiple-choice question, your answer must exactly match one of the options provided in the question.)
             """
             if not self.synthesis_llm or isinstance(self.synthesis_llm, BaseDummyLLM) or not hasattr(self.synthesis_llm, 'generate'): # This call should now work
                 self.logger.warning("MASOrchestrator", f"Synthesis LLM not effectively initialized for cycle {current_prm_cycle_num + 1}. Using placeholder.")
@@ -1503,13 +1512,13 @@ def main():
 
     # Ensure dataset and result directories exist
     dataset_base_dir = r"C:\Users\user\Documents\GitHub\MAS-PRM\dataset"
-    results_base_dir = "result/part4" # From [1]
+    results_base_dir = "result/part1" # From [1]
     # os.makedirs(dataset_base_dir, exist_ok=True)
     # os.makedirs(results_base_dir, exist_ok=True)
     # Ensure debate transcripts directory from [1] exists
-    # os.makedirs("debate_transcripts/part4", exist_ok=True)
+    # os.makedirs("debate_transcripts/part1", exist_ok=True)
 
-    csv_file_path = os.path.join(dataset_base_dir, "All_of_dataset_part4.csv") # Path from [1]
+    csv_file_path = os.path.join(dataset_base_dir, "All_of_dataset_part1.csv") # Path from [1]
     logger.info(f"Attempting to load CSV data from: {os.path.abspath(csv_file_path)}")
 
     if not os.path.exists(csv_file_path):
